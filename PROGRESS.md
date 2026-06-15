@@ -119,16 +119,16 @@
   - 验收标准：成功导入多个 service；`ID`、`Name`、`PackageSource`、`ServiceRoot`、`NodeEntry`、schema path、methods metadata 正确。
   - 完成总结：已将 `Importer.ImportRecursive` 从占位实现替换为核心成功路径：同一 staging 中只执行一次 source prepare、build 和 runtime dependency preparation；通过 `discoverServiceRoots` 获取稳定 service root 列表；逐个预校验 manifest、`service.json.name` service ID、重复 ID、root `package.json bin`、config/secret schema，并为每个 service 编译独立 descriptor；预校验成功后按 service root 顺序提交各 service，`PackageSource` 使用 base source 拼接 discovered service root。新增测试覆盖多 service package 成功导入、`source//nested` 作为 scan root 只导入子树、package root 自身为 service root，并断言 ID、Name、PackageSource、ServiceRoot、NodeEntry、schema path 和 method metadata。验证命令：`go test ./internal/packageimport`，结果通过。
 
-- [ ] 3.3 完成 recursive failure 和零提交语义
+- [x] 3.3 完成 recursive failure 和零提交语义
   - 依赖：3.2。
   - 工作内容：确保 source 获取、构建、依赖安装、discovery、manifest、ID、bin、schema、descriptor 失败时不提交任何 service；提交阶段系统错误保留已提交项并返回明确失败项。
   - 可并行子任务：
-    - [ ] 可并行：重复 `service.json.name` 和非法 ID 测试。
-    - [ ] 可并行：缺 bin entry、坏 schema、坏 proto 测试。
-    - [ ] 可并行：空发现和 scan root 错误测试。
+    - [x] 可并行：重复 `service.json.name` 和非法 ID 测试。
+    - [x] 可并行：缺 bin entry、坏 schema、坏 proto 测试。
+    - [x] 可并行：空发现和 scan root 错误测试。
   - 测试方案：`go test ./internal/packageimport`。
   - 验收标准：所有提交前失败场景 store 中无新增 service；错误信息包含 service root 或 service id 上下文。
-  - 完成总结：待完成。
+  - 完成总结：已新增 `TestImporterImportRecursivePrevalidationFailuresKeepStoreEmpty`，覆盖重复 `service.json.name`、非法 service id、缺 root `package.json bin` entry、缺 schema 文件、坏 proto、空 scan root 和缺失 scan root。每个用例均断言错误包含 service root/scan root 或失败类型上下文，并确认 store 中没有新增 service。当前 3.2 实现已在提交前完成这些 discovery/manifest/ID/bin/schema/descriptor 校验，因此本阶段无需改实现。验证命令：`go test ./internal/packageimport`，结果通过。
 
 - [ ] 3.4 验证重导入展示名保留
   - 依赖：3.2。

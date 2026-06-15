@@ -163,6 +163,101 @@ func TestImporterImportRecursiveImportsRootService(t *testing.T) {
 	}
 }
 
+func TestImporterImportRecursivePrevalidationFailuresKeepStoreEmpty(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, pkg multiServiceTestPackage) string
+		want  string
+	}{
+		{
+			name: "duplicate id",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				updateMultiServiceManifestName(t, pkg.Root, "vendor__beta", "alpha-service")
+				return pkg.Root
+			},
+			want: "duplicate service id",
+		},
+		{
+			name: "invalid id",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				updateMultiServiceManifestName(t, pkg.Root, "vendor__alpha", "bad/id")
+				updatePackageBin(t, pkg.Root, func(bin map[string]string) {
+					bin["bad/id"] = "bin/alpha-service.js"
+				})
+				return pkg.Root
+			},
+			want: "invalid service id",
+		},
+		{
+			name: "missing bin",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				updatePackageBin(t, pkg.Root, func(bin map[string]string) {
+					delete(bin, "beta-service")
+				})
+				return pkg.Root
+			},
+			want: "package.json bin",
+		},
+		{
+			name: "missing schema",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				if err := os.Remove(filepath.Join(pkg.Root, "vendor__alpha", "config.schema.json")); err != nil {
+					t.Fatal(err)
+				}
+				return pkg.Root
+			},
+			want: "configSchema",
+		},
+		{
+			name: "bad proto",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				writeTestFile(t, filepath.Join(pkg.Root, "vendor__alpha", "proto", "service.proto"), "not proto\n", 0o644)
+				return pkg.Root
+			},
+			want: "compile service vendor__alpha descriptor",
+		},
+		{
+			name: "empty scan root",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				if err := os.MkdirAll(filepath.Join(pkg.Root, "empty-scan"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				writeTestFile(t, filepath.Join(pkg.Root, "empty-scan", "README.md"), "empty\n", 0o644)
+				updatePackageFiles(t, pkg.Root, func(files []string) []string {
+					return append(files, "empty-scan")
+				})
+				return pkg.Root + "//empty-scan"
+			},
+			want: "no service roots found",
+		},
+		{
+			name: "missing scan root",
+			setup: func(t *testing.T, pkg multiServiceTestPackage) string {
+				return pkg.Root + "//missing"
+			},
+			want: "scan root",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dataDir, s := openTestStore(t)
+			pkg := writeMultiServiceTestPackage(t, t.TempDir())
+			source := tc.setup(t, pkg)
+			_, err := (&Importer{DataDir: dataDir, Store: s}).ImportRecursive(context.Background(), Options{Source: source, Recursive: true, Offline: true, Build: "never"})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("ImportRecursive error=%v want %q", err, tc.want)
+			}
+			services, err := s.ListServices(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(services) != 0 {
+				t.Fatalf("recursive prevalidation failure committed services: %+v", services)
+			}
+		})
+	}
+}
+
 func TestImporterKeepsLocalExampleSDKAfterRuntimeDependencyPreparation(t *testing.T) {
 	dataDir, s := openTestStore(t)
 	root := t.TempDir()
@@ -1506,6 +1601,74 @@ func writeIgnoredServiceJSON(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 	writeTestFile(t, filepath.Join(dir, "service.json"), `{"schema":"chaitin.octobus.service.v1","name":"ignored","proto":{"roots":["proto"],"files":["proto/ignored.proto"]}}`, 0o644)
+}
+
+func updateMultiServiceManifestName(t *testing.T, root, serviceRoot, name string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(serviceRoot), "service.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest map[string]any
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest["name"] = name
+	manifest["displayName"] = name + " display"
+	updated, err := json.Marshal(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, path, string(updated), 0o644)
+}
+
+func updatePackageBin(t *testing.T, root string, mutate func(map[string]string)) {
+	t.Helper()
+	path := filepath.Join(root, "package.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pkg struct {
+		Name    string            `json:"name"`
+		Version string            `json:"version"`
+		Bin     map[string]string `json:"bin"`
+		Files   []string          `json:"files"`
+	}
+	if err := json.Unmarshal(raw, &pkg); err != nil {
+		t.Fatal(err)
+	}
+	mutate(pkg.Bin)
+	updated, err := json.Marshal(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, path, string(updated), 0o644)
+}
+
+func updatePackageFiles(t *testing.T, root string, mutate func([]string) []string) {
+	t.Helper()
+	path := filepath.Join(root, "package.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pkg struct {
+		Name    string            `json:"name"`
+		Version string            `json:"version"`
+		Bin     map[string]string `json:"bin"`
+		Files   []string          `json:"files"`
+	}
+	if err := json.Unmarshal(raw, &pkg); err != nil {
+		t.Fatal(err)
+	}
+	pkg.Files = mutate(pkg.Files)
+	updated, err := json.Marshal(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeTestFile(t, path, string(updated), 0o644)
 }
 
 func testManifestName(t *testing.T, manifest string) string {
