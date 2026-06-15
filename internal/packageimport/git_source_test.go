@@ -141,6 +141,21 @@ func TestParseGitSourceRejectsInvalidForms(t *testing.T) {
 	}
 }
 
+func TestRecursiveGitPackageSourceRedactsCredentials(t *testing.T) {
+	raw := "https://user:p%40ss@host.example/repo.git//scan-root@v1.0.0"
+	base := recursiveBasePackageSource(raw, raw)
+	got := sourceWithServiceRootForPackage(base, "scan-root/vendor__alpha")
+	want := "https://user:******@host.example/repo.git//scan-root/vendor__alpha@v1.0.0"
+	if got != want {
+		t.Fatalf("recursive git package source=%q want %q", got, want)
+	}
+	for _, leaked := range []string{"p%40ss", "p@ss"} {
+		if strings.Contains(got, leaked) {
+			t.Fatalf("recursive git package source leaked %q: %s", leaked, got)
+		}
+	}
+}
+
 func TestGitSourceAdditionalParsingBranches(t *testing.T) {
 	if got := looksLikeGitScheme("file"); got {
 		t.Fatal("file scheme should not look like a git scheme")

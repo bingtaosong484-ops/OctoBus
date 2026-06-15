@@ -431,6 +431,37 @@ func TestAdminRecursiveServiceImportDegradedOnRestartFailure(t *testing.T) {
 	}
 }
 
+func TestAdminRecursiveServiceImportLogsDoNotLeakSourceCredentials(t *testing.T) {
+	var out bytes.Buffer
+	dataDir := t.TempDir()
+	st, err := store.Open(filepath.Join(dataDir, "octobus.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	service := domain.Service{ID: "alpha-service", Name: "Alpha", PackageSource: "https://user:******@example.com/repo.git//alpha", PackageArtifactPath: "pkg-alpha", PackageSHA256: "pkgsha-alpha", DescriptorPath: "desc-alpha", DescriptorSHA256: "descsha-alpha", DescriptorVersion: "descsha-alpha", NodeEntry: "bin/alpha-service.js", RuntimeMode: domain.RuntimeModeOnDemand}
+	srv := &Server{
+		Store: st,
+		Importer: fakeServiceImporter{importRecursiveFn: func(ctx context.Context, opts packageimport.Options) (packageimport.RecursiveResult, error) {
+			return packageimport.RecursiveResult{Services: []domain.Service{service}, ServiceCount: 1}, nil
+		}},
+		Logger: slog.New(slog.NewTextHandler(&out, &slog.HandlerOptions{Level: slog.LevelInfo})),
+	}
+	source := "https://user:p%40ss@example.com/repo.git"
+	body := serveAdmin(t, srv, http.MethodPost, "/admin/v1/services/import", bytes.NewBufferString(fmt.Sprintf(`{"recursive":true,"source":%q,"offline":true}`, source)), http.StatusOK)
+	for _, leaked := range []string{"p%40ss", "p@ss", "https://user:p"} {
+		if bytes.Contains(body, []byte(leaked)) {
+			t.Fatalf("recursive import response leaked %q: %s", leaked, body)
+		}
+		if strings.Contains(out.String(), leaked) {
+			t.Fatalf("recursive import logs leaked %q: %s", leaked, out.String())
+		}
+	}
+	if !bytes.Contains(body, []byte("******")) {
+		t.Fatalf("recursive import response did not include redacted source: %s", body)
+	}
+}
+
 func TestAdminMethodAndValidationBoundaries(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()

@@ -164,15 +164,15 @@
   - 验收标准：recursive 响应 JSON 符合 spec；重启失败不回滚已导入 service。
   - 完成总结：recursive import 响应已按 service id 聚合 `restarted_instances` 和 `restart_errors`；成功路径测试覆盖多个 service 的聚合响应，并新增 enabled on-demand instance 断言其不会触发重启且返回空重启结果。新增 `TestAdminRecursiveServiceImportDegradedOnRestartFailure` 覆盖 long-running enabled instance 重启失败时返回 HTTP 409、`status:"degraded"`，并在对应 service id 下聚合 restart error。验证命令：`go test ./internal/admin`，结果通过。
 
-- [ ] 4.3 审计日志和敏感信息
+- [x] 4.3 审计日志和敏感信息
   - 依赖：4.1、4.2。
   - 工作内容：为 recursive import 增加开始、成功、失败日志，避免记录未脱敏 credential、config 或 secret；复用现有 credential redaction 语义。
   - 可并行子任务：
-    - [ ] 可并行：日志字段和错误输出审计。
-    - [ ] 可并行：HTTPS Git credential 不泄露测试。
+    - [x] 可并行：日志字段和错误输出审计。
+    - [x] 可并行：HTTPS Git credential 不泄露测试。
   - 测试方案：`go test ./internal/admin`，必要时补充 `go test ./internal/integration`。
   - 验收标准：响应、日志和 stored `PackageSource` 不包含原始 credential。
-  - 完成总结：待完成。
+  - 完成总结：已审计 recursive admin 日志字段，开始/完成/失败日志不记录请求 source、config 或 secret。修正 recursive Git `PackageSource` 组装：HTTPS Git source 使用 `parseGitSource` 的 redacted 结果作为 base，去除 scan root 后再把 discovered service root 插入到 `@ref` 前，避免原始 credential 泄露和 Git source 语法错误。新增 `TestRecursiveGitPackageSourceRedactsCredentials` 覆盖 `https://user:p%40ss@...//scan-root@ref` 递归拼接不泄露密码；新增 `TestAdminRecursiveServiceImportLogsDoNotLeakSourceCredentials` 覆盖 recursive admin 响应和日志不包含原始 credential。验证命令：`go test ./internal/packageimport ./internal/admin`，结果通过。
 
 ## 5. CLI 和服务包验证脚本
 

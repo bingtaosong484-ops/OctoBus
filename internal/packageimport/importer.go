@@ -335,6 +335,7 @@ func (i *Importer) ImportRecursive(ctx context.Context, opts Options) (Recursive
 	if prepared, err = buildSourcePackage(ctx, prepared, staging, policy, opts.Offline); err != nil {
 		return RecursiveResult{}, err
 	}
+	basePackageSource := recursiveBasePackageSource(opts.Source, baseSource)
 	runtimeDir, err := prepareServiceRuntime(ctx, prepared, staging, opts)
 	if err != nil {
 		return RecursiveResult{}, err
@@ -350,7 +351,7 @@ func (i *Importer) ImportRecursive(ctx context.Context, opts Options) (Recursive
 	for idx, serviceRoot := range serviceRoots {
 		servicePrepared := prepared
 		servicePrepared.ServiceRoot = serviceRoot
-		servicePrepared.PackageSource = sourceWithServiceRoot(baseSource, serviceRoot)
+		servicePrepared.PackageSource = sourceWithServiceRootForPackage(basePackageSource, serviceRoot)
 		service, err := validatePreparedService(servicePrepared)
 		if err != nil {
 			return RecursiveResult{}, fmt.Errorf("validate service %s: %w", serviceRoot, err)
@@ -611,6 +612,41 @@ func sourceWithServiceRoot(source, serviceRoot string) string {
 		return source
 	}
 	return source + "//" + serviceRoot
+}
+
+func recursiveBasePackageSource(rawSource, fallbackBase string) string {
+	if classifySource(rawSource) != sourceHTTPSGit {
+		return fallbackBase
+	}
+	src, err := parseGitSource(rawSource)
+	if err != nil {
+		return fallbackBase
+	}
+	redacted := src.Redacted
+	if src.Subdir == "" {
+		return redacted
+	}
+	ref, withoutRef := splitGitRef(redacted)
+	withoutRef = strings.TrimSuffix(withoutRef, "//"+src.Subdir)
+	if ref == "" {
+		return withoutRef
+	}
+	return withoutRef + "@" + ref
+}
+
+func sourceWithServiceRootForPackage(source, serviceRoot string) string {
+	if serviceRoot == "" || serviceRoot == "." {
+		return source
+	}
+	if classifySource(source) == sourceHTTPSGit {
+		ref, withoutRef := splitGitRef(source)
+		withRoot := withoutRef + "//" + serviceRoot
+		if ref == "" {
+			return withRoot
+		}
+		return withRoot + "@" + ref
+	}
+	return sourceWithServiceRoot(source, serviceRoot)
 }
 
 func discoverServiceRoots(packageDir, scanRoot string) ([]string, error) {
