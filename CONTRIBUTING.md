@@ -1,122 +1,112 @@
-# 贡献者指南
+# Contributing Guide
 
-感谢你为 OctoBus 提交贡献。OctoBus 是一个开源项目，允许社区基于合法、公开、授权的接口编写 service package / connector，以便对接不同系统或设备。
+[简体中文](./CONTRIBUTING.zh-CN.md)
 
-为保护项目、用户、贡献者和第三方厂商的合法权益，所有贡献必须遵守以下规则。项目维护者会以这些规则作为 Pull Request 审核、临时下架和后续复核的依据。
+Thank you for contributing to OctoBus. OctoBus is an open-source project that allows the community to build service packages and connectors based on lawful, public, and authorized interfaces for integrating with different systems or devices.
 
-## 接受的贡献
+To protect the project, users, contributors, and third-party vendors, all contributions must follow the rules below. Project maintainers use these rules as the basis for pull request review, temporary removal, and later re-review.
 
-我们欢迎以下类型的贡献：
+## Accepted Contributions
 
-- 基于官方公开文档、公开 API、公开 SDK、公开协议或用户合法授权接口的调用范例；
-- 不包含第三方专有代码、商业秘密或未授权材料的 connector / service package；
-- 不绕过认证、授权、许可证、限流或其他技术保护措施的集成方式；
-- 不模拟官方客户端、登录流程或用户行为来获取没有公开 API 支持的数据；
-- 不误导用户认为该 connector 获得第三方厂商官方授权、认证或背书的命名、文档和示例；
-- 不包含真实客户数据、真实密钥、真实证书、访问令牌或敏感配置的示例代码。
+We welcome contributions that:
 
-## 禁止的贡献
+- Use official public documentation, public APIs, public SDKs, public protocols, or interfaces that users are legally authorized to access;
+- Do not include third-party proprietary code, trade secrets, or unauthorized materials;
+- Do not bypass authentication, authorization, licenses, rate limits, or other technical protection measures;
+- Do not simulate official clients, login flows, or user behavior to access data that is not supported by a public API;
+- Do not use names, documentation, or examples that may mislead users into believing the connector is officially authorized, certified, or endorsed by a third-party vendor;
+- Do not include real customer data, real secrets, real certificates, access tokens, or sensitive configuration in example code.
 
-我们明确拒绝以下代码、文档或材料：
+## Prohibited Contributions
 
-- 任何通过逆向工程、抓包复刻、反编译、破解、规避技术保护措施获得的接口实现；
-- 任何依赖未获授权的闭源 SDK、私有头文件、内部协议文件、内部 API 文档或厂商专有代码的提交；
-- 任何绕过认证、破解 license、模拟官方客户端、调用未公开 endpoint、规避限流或抓取网页/控制台数据的实现；
-- 任何包含第三方商业秘密、受版权保护但未获授权的代码、配置、schema、proto、生成代码或示例数据的内容；
-- 任何硬编码密钥、token、账号密码、证书、客户环境信息或其他敏感信息；
-- 任何可能误导用户认为本项目与第三方厂商存在官方合作、授权、认证或背书关系的名称、logo、截图或描述。
+We explicitly reject code, documentation, or materials that include:
 
-## 许可证与知识产权
+- Interface implementations obtained through reverse engineering, packet capture reconstruction, decompilation, cracking, or circumvention of technical protection measures;
+- Unauthorized closed-source SDKs, private headers, internal protocol files, internal API documentation, or vendor proprietary code;
+- Implementations that bypass authentication, crack licenses, simulate official clients, call unpublished endpoints, evade rate limits, or scrape web pages or admin consoles;
+- Third-party trade secrets, copyrighted code without authorization, configuration, schemas, proto files, generated code, or sample data without proper rights;
+- Hardcoded secrets, tokens, usernames and passwords, certificates, customer environment information, or other sensitive information;
+- Names, logos, screenshots, or descriptions that may mislead users into believing this project has an official partnership, authorization, certification, or endorsement from a third-party vendor.
 
-OctoBus 项目采用 GNU General Public License v3.0 (GPL-3.0) 开源许可证。
+## License and Intellectual Property
 
-### GPL-3.0 兼容性要求
+OctoBus is licensed under the GNU General Public License v3.0 (GPL-3.0).
 
-提交贡献即表示你确认：
+### GPL-3.0 Compatibility Requirements
 
-1. 你的贡献不依赖或包含任何 GPL-3.0 不兼容的代码（例如专有代码、闭源 SDK、AGPL、SSPL 等）；
-2. 如果你的贡献基于既有作品，该既有作品使用允许你提交和再分发的许可证或授权；
-3. 你的贡献不侵犯任何第三方的版权、商标、专利、商业秘密、许可证权益或其他合法权益；
-4. 你有权按照 GPL-3.0 许可证提交相关代码、文档和材料。
+By submitting a contribution, you confirm that:
 
-### 代码来源声明
+1. Your contribution does not depend on or include code that is incompatible with GPL-3.0, such as proprietary code, closed-source SDKs, AGPL, or SSPL code;
+2. If your contribution is based on existing work, that work is licensed or authorized in a way that allows you to submit and redistribute it;
+3. Your contribution does not infringe any third-party copyright, trademark, patent, trade secret, license right, or other legal right;
+4. You have the right to submit the code, documentation, and materials under the GPL-3.0 license.
 
-对于涉及第三方系统或设备的贡献，请在 Pull Request 中说明代码来源：
+### Source Declaration
 
-- 代码是完全原创，还是改编自既有作品？
-- 如果改编自既有作品，原始作品的来源、许可证和授权方式是什么？
-- 是否依赖第三方 SDK？如果是，该 SDK 的许可证是什么？是否与 GPL-3.0 兼容？
+For contributions involving third-party systems or devices, please explain the source of the code in the pull request:
 
-维护者可能会要求贡献者补充代码来源说明、接口来源说明、许可证说明或其他合规证明材料。来源不清或说明不足的贡献可能会被拒绝合并。
+- Is the code entirely original, or is it adapted from existing work?
+- If it is adapted from existing work, what is the source, license, and authorization model of the original work?
+- Does it depend on any third-party SDK? If so, what is the SDK license, and is it compatible with GPL-3.0?
 
-## 提交签名要求
+Maintainers may ask contributors to provide code provenance details, interface source details, license explanations, or other compliance evidence. Contributions with unclear or insufficient source information may be rejected.
 
-本项目要求所有贡献者在每个提交中包含签名信息，以表明你同意 [Developer Certificate of Origin (DCO)](https://developercertificate.org/)，即你有权提交相关代码，并同意按照项目许可证发布。
+## Commit Sign-off Requirement
 
-### 如何添加签名
+Contributors need to add a Signed-off-by line to commits to confirm that they have the right to submit the contribution and agree to release it under the project license.
 
-在提交时使用 `-s` 参数，会自动添加签名行：
+For commits without a Signed-off-by line, maintainers may ask contributors to add the sign-off, provide source explanations, or submit other supporting materials.
+
+### How to Add a Sign-off
+
+Use the `-s` flag when committing:
 
 ```bash
 git commit -s -m "Add new feature"
 ```
 
-这会生成如下格式的提交信息：
+This generates a commit message like:
 
-```
+```text
 Add new feature
 
 Signed-off-by: Your Name <your.email@example.com>
 ```
 
-### 签名的含义
+### What the Sign-off Means
 
-添加签名即表示你确认：
+By adding a sign-off, you confirm that:
 
-1. 你有权提交相关代码、文档和材料；
-2. 你的贡献不违反目标系统、设备、平台或服务的使用条款；
-3. 你的贡献未使用逆向工程、破解、绕过认证、模拟客户端、抓包复刻、网页抓取或规避技术保护措施等方式获得；
-4. 你的贡献不包含真实密钥、真实客户数据或其他不应公开的信息。
+1. You have the right to submit the code, documentation, and materials;
+2. Your contribution does not violate the terms of service of the target system, device, platform, or service;
+3. Your contribution was not obtained through reverse engineering, cracking, authentication bypass, client simulation, packet capture reconstruction, web scraping, or circumvention of technical protection measures;
+4. Your contribution does not include real secrets, real customer data, or other information that should not be public.
 
-### 自动化检查
-
-项目的持续集成流程会检查每个提交是否包含签名。缺少签名的 Pull Request 无法合并。
-
-如果你需要为已有提交补充签名，可以参考以下操作：
+If you need to add a sign-off to the latest commit, you can use:
 
 ```bash
-# 修改最近一次提交，添加签名
 git commit --amend -s
-
-# 或者修改多次提交（需要交互式 rebase）
-git rebase -i HEAD~N
-# 在交互界面中选择需要修改的提交，然后对每个提交执行：
-git commit --amend -s
-git rebase --continue
-
-# 最后推送修改
-git push --force-with-lease
 ```
 
-## Connector / Service Package 审核标准
+## Connector / Service Package Review Criteria
 
-如果某项贡献涉及第三方系统或设备，请在 Pull Request 中说明：
+If a contribution involves a third-party system or device, please explain the following in the pull request:
 
-- 目标系统、设备、平台或服务名称；
-- 使用的接口来源，例如官方公开文档、公开 API、公开 SDK、公开协议或用户授权接口；
-- 是否依赖第三方 SDK，以及该 SDK 的许可证、获取方式和使用条件；
-- 该 SDK 的许可证是否与 GPL-3.0 兼容；
-- 是否需要用户自行提供 API 凭据、token、证书或其他授权材料；
-- 是否涉及限流、调用配额、审计日志、数据导出或目标系统 ToS 限制；
-- 是否涉及高风险操作，例如重启设备、删除策略、关闭防护、批量修改配置等；
-- 测试方式、文档说明和示例数据来源。
+- The target system, device, platform, or service name;
+- The interface source, such as official public documentation, public API, public SDK, public protocol, or user-authorized interface;
+- Whether the contribution depends on a third-party SDK, including the SDK license, acquisition method, and usage conditions;
+- Whether the SDK license is compatible with GPL-3.0;
+- Whether users must provide API credentials, tokens, certificates, or other authorization materials;
+- Whether the integration involves rate limits, quotas, audit logs, data export, or target-system terms-of-service restrictions;
+- Whether the integration includes high-risk operations, such as rebooting devices, deleting policies, disabling protection, or bulk-changing configuration;
+- The test approach, documentation, and source of sample data.
 
-项目维护者会根据以上规则审核贡献内容。对于来源不清、接口合法性存疑、依赖闭源材料、包含敏感信息或可能涉及第三方权利争议的提交，维护者有权要求补充说明、修改、拒绝合并，或在合并后临时下架、移除相关内容。
+Project maintainers review contributions according to these rules. For submissions with unclear provenance, questionable interface legality, closed-source dependencies, sensitive information, or possible third-party rights disputes, maintainers may request clarification, require changes, reject the contribution, or temporarily remove related materials after merge.
 
-## 官方与社区贡献边界
+## Official and Community Contribution Boundary
 
-合并到本仓库或被项目文档引用的 connector / service package 仍可能由社区贡献者维护。除非项目明确说明，不得使用 `official`、厂商 logo、厂商商标或其他容易让用户误以为获得第三方厂商官方授权、认证或背书的命名和展示方式。
+Connectors or service packages merged into this repository or referenced by project documentation may still be maintained by community contributors. Unless explicitly stated by the project, do not use `official`, vendor logos, vendor trademarks, or other names and presentation that may cause users to believe the connector has official authorization, certification, or endorsement from a third-party vendor.
 
-## 合规投诉
+## Compliance Complaints
 
-如果你认为本项目中的任何内容侵犯了你的权利，或包含未经授权的代码、文档、接口实现、密钥、商业秘密或其他争议材料，请通过 [安全策略](./SECURITY.md) 中说明的合规投诉通道联系我们。
+If you believe any content in this project infringes your rights or includes unauthorized code, documentation, interface implementations, secrets, trade secrets, or other disputed materials, please contact us through the compliance complaint channel described in the [Security Policy](./SECURITY.md).
