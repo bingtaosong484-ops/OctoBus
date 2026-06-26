@@ -105,6 +105,10 @@ const services = {
     entryFile: "../sangfor__fw_v8-0-45/bin/sangfor-fw-v8-0-45.js",
     serviceModule: "../sangfor__fw_v8-0-45/src/service.js",
   },
+  "slack-group-robot": {
+    entryFile: "../slack__group-robot/bin/slack-group-robot.js",
+    serviceModule: "../slack__group-robot/src/service.js",
+  },
   "skycloud-inet": {
     entryFile: "../skycloud__inet/bin/skycloud-inet.js",
     serviceModule: "../skycloud__inet/src/service.js",
