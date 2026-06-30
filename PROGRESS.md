@@ -553,11 +553,14 @@
       - `git status --short`：仓库级门禁后无 tracked 变更。
       - `git ls-files --others --exclude-standard`：无输出。
       - `find services -maxdepth 2 \( -name '*.tgz' -o -name '*.tar.gz' -o -name '*.zip' -o -name '*.log' -o -name '.env' -o -name 'coverage' -o -name 'package-lock.json' \) -print | sort`：无输出。
+      - `gh run list --branch feat/update-sdk-to-0.6.0 --limit 5`：无输出。
+      - `gh pr list --head feat/update-sdk-to-0.6.0 --json number,title,state,url,headRefName,statusCheckRollup --limit 5`：输出 `[]`。
     - 审计与例外：
       - 使用命令级 `GOSUMDB=sum.golang.org` 是本地 Go 工具链校验例外；默认环境 `GOSUMDB=off` 会阻止下载/校验 `go1.26.1` toolchain。代码和仓库配置未因该环境例外修改。
       - `task test` 脚本本身未强制 AGENTS 中“overall coverage 至少 90%”的文字目标；本次实际输出 total coverage 为 89.4%，低于该文字目标但命令退出码为 0。该差异是现有 harness 口径问题，未在 services SDK 升级中混入无关 Go 覆盖率补测。
       - `task test` 生成的 root `coverage/` 和 `.octobus/` 本地数据目录已清理；`bin/octobus`、SDK/example dependency build output 和 `services/node_modules` 均为 ignored 本地验证产物，未进入提交范围。
       - 条件 e2e 已触发并通过，因为本次变更影响 service package/import 验证路径和 services SDK runtime dependency。
+      - 远端 CI 策略：当前 `.github/workflows/ci.yml` 只在 PR、`main` push 和 tag push 触发；本分支没有关联 PR，分支 push 不产生 GitHub Actions run。因此本次以本地完整 harness 和显式 e2e 作为最终门禁证据，后续创建 PR 后由 GitHub CI 自动补跑。
     - 下一目标：无。
 
 ## 首版不做的事项
