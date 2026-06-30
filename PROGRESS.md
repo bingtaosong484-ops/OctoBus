@@ -140,16 +140,16 @@
       - 未修改 package import、proto、schema、service name、bin、handler key、runtime mode 或业务源码。
     - 下一目标：任务 2.3。
 
-- [ ] 2.3 跑纯依赖升级 services 门禁
+- [x] 2.3 跑纯依赖升级 services 门禁
   - 依赖：任务 2.1、任务 2.2。
   - 工作内容：
     - 清理不应提交的 `services/package-lock.json`、`services/node_modules/`、pack artifact 和日志。
     - 运行 services 结构、测试和 pack dry-run 门禁。
     - 如果仅依赖升级导致测试失败，停止后续 helper 迁移并定位 SDK 0.6.0 兼容性问题。
   - 可并行子任务：
-    - [ ] 可并行：运行 `npm run validate`。
-    - [ ] 可并行：运行 `npm test`。
-    - [ ] 可并行：运行 `npm run pack:check`，但必须在清理生成物后执行。
+    - [x] 可并行：运行 `npm run validate`。
+    - [x] 可并行：运行 `npm test`。
+    - [x] 可并行：运行 `npm run pack:check`，但必须在清理生成物后执行。
   - 测试方案：
     - `cd services && npm run validate`
     - `cd services && npm test`
@@ -160,10 +160,25 @@
     - `git status --short` 不出现应忽略生成物。
     - helper 迁移前项目处于可验证状态。
   - 完成总结：
-    - 状态：待完成。
-    - 变更：待完成。
-    - 验证：待完成。
-    - 审计与例外：待完成。
+    - 状态：已完成。纯依赖升级后的 services validate、test 和 pack dry-run 门禁均通过。
+    - 变更：
+      - 清理 ignored 的 `services/node_modules` 和 `services/package-lock.json` 后，使用 `cd services && npm install --package-lock=false` 重新安装依赖。
+      - 确认重新安装后的 `services/node_modules/@chaitin-ai/octobus-sdk` 版本为 `0.6.0`，且未生成 `services/package-lock.json`。
+      - 未修改 tracked 代码或 package 文件；本任务仅更新进度证据。
+    - 验证：
+      - `node -e 'const p=require("./services/node_modules/@chaitin-ai/octobus-sdk/package.json"); console.log(p.version)'`：输出 `0.6.0`。
+      - `test ! -e services/package-lock.json && echo no-package-lock`：输出 `no-package-lock`。
+      - `cd services && npm run validate`：通过，输出 `service package naming checks passed`。
+      - `cd services && npm test`：通过，19 个 Node tests 全部 pass。
+      - `cd services && npm run pack:check`：通过，`npm pack --dry-run` 生成内容审计完成；未留下实际 tarball。
+      - `rg '"@chaitin-ai/octobus-sdk": "\\^0\\.5\\.0"' services || true`：无输出。
+      - `find services -maxdepth 2 \( -name '*.tgz' -o -name '*.tar.gz' -o -name '*.zip' -o -name '*.log' -o -name '.env' -o -name 'coverage' -o -name 'package-lock.json' \) -print | sort`：无输出。
+      - `git status --short`：无输出。
+      - `git ls-files --others --exclude-standard`：无输出。
+    - 审计与例外：
+      - `npm test` 过程中 validator fixture 测试会打印预期错误信息，用于断言非法 package 场景；最终测试结果为 19 pass、0 fail。
+      - `npm run pack:check` 输出 npm 的 `.gitignore` fallback warning 和 dry-run tarball 文件名，但最终 `find` 确认未产生可提交 artifact。
+      - 本地 `services/node_modules` 作为 ignored 依赖安装目录存在，用于后续 services 测试；未进入 `git status` 或提交范围。
     - 下一目标：任务 3.1。
 
 ## 3. 抽取低风险 Helper 迁移候选
