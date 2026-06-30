@@ -432,7 +432,7 @@
       - `bin/octobus` 作为 ignored 本地构建输出保留在工作区，用于 import check 和后续仓库级门禁。
     - 验证：
       - `task build`：首次在本地默认环境失败，错误为 `GOSUMDB=off` 导致 `golang.org/toolchain@v0.0.1-go1.26.1.linux-amd64` 无法通过 checksum database 校验。
-      - `GOSUMDB=sum.golang.org go env GOSUMDB GONOSUMDB GOTOOLCHAIN GOVERSION GOPROXY`：确认重跑环境为 `GOSUMDB=sum.golang.org`、`GONOSUMDB=git.in.chaitin.net`、`GOTOOLCHAIN=auto`、`GOVERSION=go1.26.1`、`GOPROXY=http://goproxy.dev.in.chaitin.net,direct`。
+      - `GOSUMDB=sum.golang.org go env GOSUMDB GONOSUMDB GOTOOLCHAIN GOVERSION GOPROXY`：确认重跑环境启用公共 checksum database，`GOTOOLCHAIN=auto`，`GOVERSION=go1.26.1`；本地私有模块例外和代理链仅作为环境配置审计，不在文档中记录具体内部地址。
       - `GOSUMDB=sum.golang.org task build`：通过，生成 `bin/octobus`。
       - `test -x bin/octobus && file bin/octobus`：确认 `bin/octobus` 为可执行的静态链接 Linux ELF。
       - `cd services && npm run import:check -- --octobus ../bin/octobus`：通过，输出 `import checks passed for 50 services`。
@@ -483,15 +483,15 @@
 
 参考文档：[实施计划 阶段 7](docs/plan/services-sdk-0-6-upgrade-implementation-plan.md#阶段-7仓库级回归和文档收束)
 
-- [ ] 7.1 复查文档和最终污染状态
+- [x] 7.1 复查文档和最终污染状态
   - 依赖：任务 6.1、任务 6.2；如果执行任务 6.3，也依赖任务 6.3。
   - 工作内容：
     - 复查 spec、plan、`PROGRESS.md`、被更新设计文档和被影响 service README。
     - 确认文档中的命令与实际 `services/package.json` scripts、`Taskfile.yml` 和 CI 一致。
     - 做最终污染检查，确认未提交 forbidden/generated artifacts。
   - 可并行子任务：
-    - [ ] 可并行：文档链接和命令审计。
-    - [ ] 可并行：git status 和 untracked 文件审计。
+    - [x] 可并行：文档链接和命令审计。
+    - [x] 可并行：git status 和 untracked 文件审计。
   - 测试方案：
     - `git status --short`
     - `git ls-files --others --exclude-standard`
@@ -499,10 +499,23 @@
     - 文档和实际交付状态一致。
     - 没有 `services/package-lock.json`、`node_modules/`、pack artifact、日志、coverage、`.env` 或 secret 进入待提交变更。
   - 完成总结：
-    - 状态：待完成。
-    - 变更：待完成。
-    - 验证：待完成。
-    - 审计与例外：待完成。
+    - 状态：已完成。文档、脚本入口、CI 入口和污染状态复查通过。
+    - 变更：
+      - 脱敏任务 6.2 中本地 Go 环境审计记录，移除具体内部代理/域名值，只保留 `GOSUMDB=sum.golang.org` 重跑策略和 Go toolchain 事实。
+      - 本任务未修改 service 源码、package 文件、proto、schema、service name、bin 配置或测试脚本。
+    - 验证：
+      - `node -e 'const p=require("./services/package.json"); console.log(Object.entries(p.scripts).map(([k,v])=>`${k}=${v}`).join("\\n"))'`：确认 services scripts 为 `validate`、`test`、`coverage:all`、`import:check`、`pack:check`，与 spec/plan/PROGRESS 使用的命令一致。
+      - `sed -n '1,220p' Taskfile.yml`：确认仓库级 harness 入口仍为 `task lint`、`task test`、`task build`；`task build` 继续检查 `bin/octobus` 静态链接。
+      - `sed -n '1,260p' .github/workflows/ci.yml`：确认 CI validate job 覆盖 public trace scan、Go format/vet/test、build、OctoBus npm dry-run、SDK npm test/build/pack。
+      - `rg -n '"@chaitin-ai/octobus-sdk": "\\^0\\.5\\.0"|"@chaitin-ai/octobus-sdk": "0\\.5\\.0"' services docs/design/technical/multi-service-npm-package.md docs/design/technical/service-package.md`：无输出，当前 services 包和设计文档示例无 SDK 0.5 dependency 残留。
+      - 内部痕迹扫描：按 CI public trace scan 的模式集合扩展到 `docs` 和 `PROGRESS.md` 后复查；脱敏前仅命中 `PROGRESS.md` 6.2 的本地 Go 环境记录，本任务已移除具体内部值。
+      - `git status --short`：审计开始前无输出。
+      - `git ls-files --others --exclude-standard`：无输出。
+      - `find services -maxdepth 2 \( -name '*.tgz' -o -name '*.tar.gz' -o -name '*.zip' -o -name '*.log' -o -name '.env' -o -name 'coverage' -o -name 'package-lock.json' \) -print | sort`：无输出。
+    - 审计与例外：
+      - spec、plan 和 `PROGRESS.md` 中仍保留 `^0.5.0` 历史基线、任务输入或已完成验证描述；这些不是当前 package dependency 或设计示例。
+      - `.github/workflows/ci.yml` 的 public trace scan 不覆盖根 `PROGRESS.md`，但本任务仍主动移除了其中的内部代理/域名值，避免过程文档携带私有环境痕迹。
+      - 本地 `services/node_modules` 和 `bin/octobus` 仍作为 ignored 测试/构建输出保留，未进入待提交或 untracked 列表。
     - 下一目标：任务 7.2。
 
 - [ ] 7.2 运行仓库级 harness 门禁
