@@ -109,26 +109,35 @@
       - 本地 ignored 的 `services/package-lock.json` 和 `services/node_modules` 未进入 `git status` 或提交范围。
     - 下一目标：任务 2.2。
 
-- [ ] 2.2 更新依赖版本相关 fixture 和文档示例
+- [x] 2.2 更新依赖版本相关 fixture 和文档示例
   - 依赖：任务 2.1。
   - 工作内容：
     - 更新 `services/tests/validate-service-package.test.mjs` 中测试 fixture 的 SDK 版本字符串为 `^0.6.0`。
     - 更新 `services/first__epss-v1/README.md` 中 SDK 版本说明为 `^0.6.0`。
     - 更新 `docs/design/technical/multi-service-npm-package.md` 和 `docs/design/technical/service-package.md` 中 services package 示例依赖为 `^0.6.0`。
   - 可并行子任务：
-    - [ ] 可并行：测试 fixture 更新。
-    - [ ] 可并行：service README 更新。
-    - [ ] 可并行：设计文档示例更新。
+    - [x] 可并行：测试 fixture 更新。
+    - [x] 可并行：service README 更新。
+    - [x] 可并行：设计文档示例更新。
   - 测试方案：
     - `rg '\\^0\\.5\\.0|0\\.5\\.0' services docs/design/technical/multi-service-npm-package.md docs/design/technical/service-package.md`
   - 验收标准：
     - services 和相关设计文档不再引用 SDK 0.5.0。
     - `examples/*` 未被修改；示例升级不在首版范围内。
   - 完成总结：
-    - 状态：待完成。
-    - 变更：待完成。
-    - 验证：待完成。
-    - 审计与例外：待完成。
+    - 状态：已完成。完成 SDK 版本相关 fixture、service README 和设计文档示例同步。
+    - 变更：
+      - `services/tests/validate-service-package.test.mjs` 中 4 个测试 fixture 的 SDK dependency 改为 `^0.6.0`。
+      - `services/first__epss-v1/README.md` 中 SDK 版本说明改为 `^0.6.0`。
+      - `docs/design/technical/multi-service-npm-package.md` 中 services package 示例依赖改为 `^0.6.0`。
+      - `docs/design/technical/service-package.md` 中 JavaScript service package 依赖基线和 SDK npmjs 分发示例改为 `^0.6.0`。
+    - 验证：
+      - `rg -n '\\^0\\.5\\.0|0\\.5\\.0' services docs/design/technical/multi-service-npm-package.md docs/design/technical/service-package.md || true`：无输出。
+      - `git diff --name-only -- examples`：无输出，确认未修改 `examples/*`。
+      - `git diff --name-only`：仅包含两份设计文档、`services/first__epss-v1/README.md` 和 `services/tests/validate-service-package.test.mjs`。
+    - 审计与例外：
+      - 本任务没有运行 services validate/test/pack check；完整纯依赖升级门禁由任务 2.3 执行。
+      - 未修改 package import、proto、schema、service name、bin、handler key、runtime mode 或业务源码。
     - 下一目标：任务 2.3。
 
 - [ ] 2.3 跑纯依赖升级 services 门禁
