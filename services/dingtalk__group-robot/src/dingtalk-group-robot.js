@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { GrpcError, grpcCodeFor } from '@chaitin-ai/octobus-sdk';
+import { GrpcError, grpcCodeFor, normalizeTimeoutMs } from '@chaitin-ai/octobus-sdk';
 
 export const METHOD_SEND_TEXT_PATH = '/DingDing_GroupRobot.DingDing_GroupRobot/SendTextMessage';
 export const METHOD_SEND_TEXT_FULL = 'DingDing_GroupRobot.DingDing_GroupRobot/SendTextMessage';
@@ -96,8 +96,7 @@ const resolveCallContext = (ctx = {}) => ({
 
 const resolveTimeoutMs = (ctx) => {
   const bindings = mergedBindings(ctx);
-  const raw = Number(firstDefined(bindings.timeoutMs, bindings.timeout_ms, ctx?.limits?.timeoutMs, DEFAULT_TIMEOUT_MS));
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+  return normalizeTimeoutMs(firstDefined(bindings.timeoutMs, bindings.timeout_ms, ctx?.limits?.timeoutMs), DEFAULT_TIMEOUT_MS);
 };
 
 const tlsSkipRequested = (bindings = {}) => (

@@ -1,5 +1,4 @@
-import { GrpcError, grpcCodeFor } from '@chaitin-ai/octobus-sdk';
-import { Agent } from 'undici';
+import { GrpcError, createTlsDispatcher, grpcCodeFor, normalizeTimeoutMs } from '@chaitin-ai/octobus-sdk';
 
 export const METHOD_SEND_TEXT_PATH = '/Feishu_GroupRobot.Feishu_GroupRobot/SendTextMessage';
 export const METHOD_SEND_TEXT_FULL = 'Feishu_GroupRobot.Feishu_GroupRobot/SendTextMessage';
@@ -63,11 +62,10 @@ const resolveCallContext = (ctx = {}) => ({
 
 const resolveTimeoutMs = (ctx) => {
   const bindings = mergedBindings(ctx);
-  const raw = Number(firstDefined(bindings.timeoutMs, bindings.timeout_ms, ctx?.limits?.timeoutMs, DEFAULT_TIMEOUT_MS));
-  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
+  return normalizeTimeoutMs(firstDefined(bindings.timeoutMs, bindings.timeout_ms, ctx?.limits?.timeoutMs), DEFAULT_TIMEOUT_MS);
 };
 
-const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+const insecureTlsDispatcher = createTlsDispatcher(true);
 
 const buildTlsOptions = (bindings) => {
   const enabled = Boolean(bindings?.skipTlsVerify || bindings?.tlsInsecureSkipVerify || bindings?.insecureSkipVerify);

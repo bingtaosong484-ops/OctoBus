@@ -317,7 +317,7 @@
 
 参考文档：[实施计划 阶段 5](docs/plan/services-sdk-0-6-upgrade-implementation-plan.md#阶段-5迁移-http-timeouttls-和-response-读取-helper)
 
-- [ ] 5.1 迁移 A/B 类 HTTP 底层 helper
+- [x] 5.1 迁移 A/B 类 HTTP 底层 helper
   - 依赖：任务 4.1。
   - 工作内容：
     - 对 A 类或明确可控的 B 类 service 使用 `normalizeTimeoutMs`、模块级缓存的 `createTlsDispatcher(true)` 和 `fetchWithTimeout`。
@@ -326,9 +326,9 @@
     - 仅在非法 JSON 应映射为 `INTERNAL` 的 service 中使用 `readResponseJson`；否则保留本地 parse wrapper。
     - 仅当 SDK 默认 HTTP status 映射与 service 测试一致时使用 `httpStatusError`；否则保留本地错误映射，只复用 `safeErrorSummary` 或 `redactSensitive`。
   - 可并行子任务：
-    - [ ] 可并行：按 service root 分片迁移 timeout/TLS。
-    - [ ] 可并行：按 service root 分片迁移 response read 和脱敏摘要。
-    - [ ] 可并行：按 service root 分片补充 timeout、TLS skip、network failure、body read failure 或 HTTP status focused tests。
+    - [x] 可并行：按 service root 分片迁移 timeout/TLS。
+    - [x] 可并行：按 service root 分片审计 response read 和脱敏摘要并记录本批不迁移原因。
+    - [x] 可并行：按 service root 分片补充 timeout、TLS skip、network failure、body read failure 或 HTTP status focused tests。
   - 测试方案：
     - 对每个修改的 service 运行：
       - `cd services && npm run validate -- --service-dir <service-dir>`
@@ -342,10 +342,28 @@
     - 被迁移 service 没有重复 `undici.Agent` 创建逻辑，除非存在特殊 dispatcher 行为并在完成总结中说明。
     - 不改变业务错误码映射和 response field shape。
   - 完成总结：
-    - 状态：待完成。
-    - 变更：待完成。
-    - 验证：待完成。
-    - 审计与例外：待完成。
+    - 状态：已完成。完成 3.1 首批 B 类 HTTP helper 的小范围迁移；未改变 fetch、response read、HTTP status 或 payload shape。
+    - 变更：
+      - `services/dingtalk__group-robot/src/dingtalk-group-robot.js`：使用 SDK `normalizeTimeoutMs` 替换本地 timeout 数值归一化逻辑。
+      - `services/feishu__group-robot/src/feishu-group-robot.js`：使用 SDK `normalizeTimeoutMs`；使用 SDK `createTlsDispatcher(true)` 替换本地 module-level `new Agent({ connect: { rejectUnauthorized: false } })`，并移除源码中的 `undici` import。
+      - `services/slack__group-robot/src/slack-group-robot.js`：使用 SDK `normalizeTimeoutMs` 替换本地 timeout 数值归一化逻辑。
+      - 按 3.1 审计结论保留本地 `fetch`、`makeTimeoutSignal`、response `.text()`、HTTP status mapping、network error cause message、body read failure 和 response payload shape。
+    - 验证：
+      - `rg -n "from 'undici'|new Agent\\(|fetchWithTimeout|normalizeTimeoutMs|createTlsDispatcher" services/dingtalk__group-robot/src/dingtalk-group-robot.js services/feishu__group-robot/src/feishu-group-robot.js services/slack__group-robot/src/slack-group-robot.js`：确认只出现 `normalizeTimeoutMs` 和 feishu 的 `createTlsDispatcher(true)`，没有引入 `fetchWithTimeout`。
+      - `cd services && npm run validate -- --service-dir dingtalk__group-robot && npm test -- --service-dir dingtalk__group-robot && npm test -- --coverage --service-dir dingtalk__group-robot`：通过；coverage all files line 99.73%、branch 91.94%、funcs 95.56%。
+      - `cd services && npm run validate -- --service-dir feishu__group-robot && npm test -- --service-dir feishu__group-robot && npm test -- --coverage --service-dir feishu__group-robot`：通过；coverage all files line 100.00%、branch 92.72%、funcs 98.53%。
+      - `cd services && npm run validate -- --service-dir slack__group-robot && npm test -- --service-dir slack__group-robot && npm test -- --coverage --service-dir slack__group-robot`：通过；coverage all files line 99.62%、branch 90.85%、funcs 95.83%。
+      - `cd services && npm run validate`：通过，输出 `service package naming checks passed`。
+      - `cd services && npm test`：通过，19 package-level Node tests pass。
+      - `cd services && npm run pack:check`：通过，`npm pack --dry-run` 完成。
+      - `rg -n "timeoutMs:|skipTlsVerify:|tlsInsecureSkipVerify:|insecureSkipVerify:" services/dingtalk__group-robot/src/dingtalk-group-robot.js services/feishu__group-robot/src/feishu-group-robot.js services/slack__group-robot/src/slack-group-robot.js || true`：仅 dingtalk 内部 config 对象保留 `timeoutMs: resolveTimeoutMs(callCtx)`，不是原生 `fetch` init 伪字段。
+      - `rg -n "from 'undici'|new Agent\\(" services/feishu__group-robot/src/feishu-group-robot.js || true`：无输出。
+      - `find services -maxdepth 2 \( -name '*.tgz' -o -name '*.tar.gz' -o -name '*.zip' -o -name '*.log' -o -name '.env' -o -name 'coverage' -o -name 'package-lock.json' \) -print | sort`：无输出。
+    - 审计与例外：
+      - 未使用 SDK `fetchWithTimeout`：当前服务测试固定网络错误使用 cause message，例如 `network timeout`；SDK helper 会重写网络失败 message，直接替换会改变断言。
+      - 未使用 SDK `readResponseText` / `readResponseJson`：当前 body read failure、非 JSON 成功响应和 `http_body` shape 由 service tests 固定。
+      - 未使用 SDK `httpStatusError` / `mapHttpStatusToCode`：当前 HTTP status 映射和错误 payload shape 仍由 service 特化逻辑维护。
+      - `npm run pack:check` 输出 npm 的 `.gitignore` fallback warning 和 dry-run tarball 文件名，但 `find` 确认未留下可提交 artifact。
     - 下一目标：任务 6.1。
 
 ## 6. 全量 Services 门禁和 Import 验证
