@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const LOGIN_PATH = '/Nsfocus_NIPS_V56R11.Nsfocus_NIPS_V56R11/Login';
 export const BLOCK_PATH = '/Nsfocus_NIPS_V56R11.Nsfocus_NIPS_V56R11/BlockIP';
@@ -92,13 +93,16 @@ const toBoolean = (value) => {
   return false;
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings) => {
   if (!toBoolean(bindings?.skipTlsVerify) && !toBoolean(bindings?.tlsInsecureSkipVerify) && !toBoolean(bindings?.insecureSkipVerify)) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const getInstanceId = (ctx) => String(ctx?.meta?.instance_id || ctx?.meta?.instanceId || 'unknown');
@@ -182,9 +186,9 @@ const fetchJsonEvenOnHttpError = async (ctx, url, init = {}) => {
   let res;
   try {
     res = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(callCtx),
-      ...buildTlsOptions(callCtx.bindings),
       ...init,
+      signal: AbortSignal.timeout(resolveTimeoutMs(callCtx)),
+      ...buildTlsOptions(callCtx.bindings),
       headers: {
         ...(callCtx.bindings?.headers || {}),
         ...(init.headers || {}),

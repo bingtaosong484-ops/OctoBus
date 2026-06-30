@@ -117,7 +117,9 @@ test('BlockIP sends expected payload, headers, and TLS options', async () => {
   const res = await callHandler(METHOD_BLOCK_IP_FULL, { IP: '2.2.2.2', type: '1', timeout: '30', timeType: '60', remark: 'r', color: '1' }, buildCtx({ bindings: { tlsInsecureSkipVerify: true } }));
   assert.equal(res.success, true);
   assert.equal(calls[0].init.headers['x-env'], 'test');
-  assert.equal(calls[0].init.tlsInsecureSkipVerify, true);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal(calls[0].init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(calls[0].init.tlsInsecureSkipVerify, undefined);
   assert.equal(calls[1].init.headers.authorization, 'Bearer tok');
   assert.deepEqual(calls[1].body, {
     color: 1,
@@ -333,9 +335,9 @@ test('helper functions cover parsing, validation, and branch behavior', () => {
   assert.equal(_test.resolveTimeoutMs(_test.resolveCallContext(buildCtx({ limits: { timeoutMs: 33 }, bindings: { timeoutMs: undefined } }))), 33);
   assert.equal(_test.resolveTimeoutMs(_test.resolveCallContext(buildCtx({ limits: { timeoutMs: undefined }, bindings: { timeoutMs: 25 } }))), 25);
   assert.equal(_test.resolveTimeoutMs(_test.resolveCallContext(buildCtx({ limits: { timeoutMs: -1 }, bindings: { timeoutMs: 25 } }))), 1500);
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: 'yes' }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
-  assert.deepEqual(_test.buildTlsOptions({ skipTlsVerify: 1 }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
+  assert.equal(_test.buildTlsOptions({ insecureSkipVerify: 'yes' }).dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }).dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(_test.buildTlsOptions({ skipTlsVerify: 1 }).dispatcher, _test.insecureTlsDispatcher);
   assert.deepEqual(_test.buildTlsOptions({ skipTlsVerify: false }), {});
   assert.deepEqual(_test.sanitizeHeaders({ a: 1, b: { value: false }, '': 'skip' }), { a: '1', b: 'false' });
   assert.deepEqual(_test.sanitizeHeaders(null), {});

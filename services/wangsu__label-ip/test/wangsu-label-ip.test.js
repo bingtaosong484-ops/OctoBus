@@ -124,8 +124,10 @@ test('BatchForbidIP issues POST with expected signed headers and payload', async
   assert.equal(calls.length, 1);
   assert.equal(calls[0].url, baseBindings.baseUrl);
   assert.equal(calls[0].init.method, 'POST');
-  assert.equal(calls[0].init.timeoutMs, 4000);
-  assert.equal(calls[0].init.tlsInsecureSkipVerify, true);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal(calls[0].init.timeoutMs, undefined);
+  assert.equal(calls[0].init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(calls[0].init.tlsInsecureSkipVerify, undefined);
   assert.equal(calls[0].init.headers['X-Time-Zone'], 'GMT+08:00');
   assert.equal(calls[0].init.headers.Date, DATE_HEADER);
   assert.equal(calls[0].init.headers['X-Wangsu-User'], USER);

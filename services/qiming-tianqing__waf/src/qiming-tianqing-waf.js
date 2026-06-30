@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_BLOCK_PATH = '/Qiming_Tianqing_WAF.QimingTianqingWafService/BlockIP';
 export const METHOD_UNBLOCK_PATH = '/Qiming_Tianqing_WAF.QimingTianqingWafService/UnblockIP';
@@ -355,7 +356,15 @@ const parseJsonResponse = async (res) => {
   }
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const fetchJson = async (url, init = {}, skipTlsVerify = false) => {
+  const timeoutSignal = init.timeoutMs === undefined ? {} : { signal: AbortSignal.timeout(init.timeoutMs) };
   const options = {
     method: init.method || 'POST',
     headers: {
@@ -363,8 +372,8 @@ const fetchJson = async (url, init = {}, skipTlsVerify = false) => {
       ...(init.headers || {}),
     },
     body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-    timeoutMs: init.timeoutMs,
-    ...(skipTlsVerify ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true } : {}),
+    ...timeoutSignal,
+    ...(skipTlsVerify ? { dispatcher: getInsecureTlsDispatcher() } : {}),
   };
 
   let res;
@@ -471,9 +480,10 @@ const login = async (config) => {
 
 const callAddressObject = async (config, context, templates, authHeaders) => {
   const payload = applyTemplate(templates.addressTemplate, context);
+  const { timeoutMs } = config;
   const { json } = await fetchJson(
     `${config.baseUrl}${PATH_ADDRESS_OBJECT}`,
-    { method: 'POST', headers: authHeaders, timeoutMs: config.timeoutMs, body: payload },
+    { method: 'POST', headers: authHeaders, timeoutMs, body: payload },
     config.credential.skipTls,
   );
   requireBusinessSuccess(json, 'addAddrObj', 'address object creation failed');
@@ -482,9 +492,10 @@ const callAddressObject = async (config, context, templates, authHeaders) => {
 
 const callBlock = async (config, context, templates, authHeaders) => {
   const payload = applyTemplate(templates.blacklistTemplate, context);
+  const { timeoutMs } = config;
   const { json } = await fetchJson(
     `${config.baseUrl}${PATH_BLOCK}`,
-    { method: 'POST', headers: authHeaders, timeoutMs: config.timeoutMs, body: payload },
+    { method: 'POST', headers: authHeaders, timeoutMs, body: payload },
     config.credential.skipTls,
   );
   requireBusinessSuccess(json, 'add_submit', 'blacklist add failed');
@@ -493,9 +504,10 @@ const callBlock = async (config, context, templates, authHeaders) => {
 
 const callUnblock = async (config, context, templates, authHeaders) => {
   const payload = applyTemplate(templates.unblockTemplate, context);
+  const { timeoutMs } = config;
   const { json } = await fetchJson(
     `${config.baseUrl}${PATH_UNBLOCK}`,
-    { method: 'POST', headers: authHeaders, timeoutMs: config.timeoutMs, body: payload },
+    { method: 'POST', headers: authHeaders, timeoutMs, body: payload },
     config.credential.skipTls,
   );
   requireBusinessSuccess(json, 'delete', 'blacklist delete failed');
@@ -503,10 +515,11 @@ const callUnblock = async (config, context, templates, authHeaders) => {
 };
 
 const tryLogout = async (config, authHeaders) => {
+  const { timeoutMs } = config;
   try {
     await fetchJson(
       `${config.baseUrl}${PATH_LOGOUT}`,
-      { method: 'POST', headers: authHeaders, timeoutMs: config.timeoutMs, body: {} },
+      { method: 'POST', headers: authHeaders, timeoutMs, body: {} },
       config.credential.skipTls,
     );
   } catch (err) {
@@ -520,15 +533,16 @@ const createRuntimeConfig = (ctx = {}) => {
   const authHeadersExtra = { ...(callCtx.bindings.headers || {}), ...(callCtx.bindings.authHeaders || {}) };
   const headers = buildHeaders(authHeadersExtra, callCtx.meta);
   const templates = resolveTemplates(callCtx.req);
+  const timeoutMs = resolveTimeoutMs(callCtx);
   return {
     callCtx,
     credential,
-    timeoutMs: resolveTimeoutMs(callCtx),
+    timeoutMs,
     headers,
     templates,
     config: {
       baseUrl: credential.baseUrl,
-      timeoutMs: resolveTimeoutMs(callCtx),
+      timeoutMs,
       headers,
       templates,
       credential,

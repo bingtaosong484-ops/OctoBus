@@ -137,11 +137,13 @@ test('BlockIP uses binding timeout, custom headers, TLS flags, IPv6 and alias fi
 
   assert.match(captured.url, /auth_key=alias-key/);
   assert.match(captured.url, /ip=2001%3Adb8%3A%3A1$/);
-  assert.equal(captured.init.timeoutMs, 3210);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
   assert.equal(captured.init.headers['X-Extra'], 'demo');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst-2');
-  assert.equal(captured.init.insecureSkipVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('insecureSkipVerify' in captured.init, false);
+  assert.equal('tlsInsecureSkipVerify' in captured.init, false);
   assert.equal(result.success, true);
 });
 
@@ -295,7 +297,8 @@ test('config and secret aliases supply bindings', async () => {
   });
 
   assert.match(captured.url, /auth_key=secret-key/);
-  assert.equal(captured.init.timeoutMs, 2500);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
   assert.equal(captured.init.headers['X-Config'], 'yes');
   assert.equal(result.message, 'unblock ip succeeded');
 });

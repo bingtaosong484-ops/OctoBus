@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const LOGIN_PATH = '/Panabit_TANG_R1.Panabit_TANG_R1/Login';
 export const LIST_IPTABLE_PATH = '/Panabit_TANG_R1.Panabit_TANG_R1/ListIPTable';
@@ -99,13 +100,16 @@ const toBoolean = (value) => {
   return false;
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings) => {
   if (!toBoolean(bindings?.tlsInsecureSkipVerify) && !toBoolean(bindings?.skipTlsVerify) && !toBoolean(bindings?.insecureSkipVerify)) return {};
-  return {
-    insecureSkipVerify: true,
-    tlsInsecureSkipVerify: true,
-    skipTlsVerify: true,
-  };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const getInstanceId = (ctx) => String(ctx?.meta?.instance_id || ctx?.meta?.instanceId || 'unknown');
@@ -236,9 +240,9 @@ const fetchText = async (ctx, url, init = {}) => {
   let res;
   try {
     res = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(ctx),
-      ...buildTlsOptions(ctx.bindings),
       ...init,
+      signal: AbortSignal.timeout(resolveTimeoutMs(ctx)),
+      ...buildTlsOptions(ctx.bindings),
     });
   } catch (err) {
     throw errorWithCode('UNAVAILABLE', err?.cause?.message || err?.message || 'fetch failed');

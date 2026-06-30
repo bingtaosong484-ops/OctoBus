@@ -121,9 +121,11 @@ test('login caches token and passes configured credentials without returning tok
   assert.equal(result.data, null);
   assert.equal(captured.url, 'https://fw.example.com/api/v1/namespaces/public/login');
   assert.deepEqual(captured.body, { name: 'api_user', password: 'TopSecret' });
-  assert.equal(captured.init.timeoutMs, 2000);
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('skipTlsVerify' in captured.init, false);
+  assert.equal('insecureSkipVerify' in captured.init, false);
   assert.equal(captured.init.headers['X-Trace'], 'demo');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
 });
@@ -320,7 +322,7 @@ test('helper functions cover aliases and fallbacks', () => {
   assert.throws(() => _test.requireJsonObject(null, 'Action'), /empty or invalid/);
   assert.equal(_test.ensureBaseUrl({ baseUrl: 'http://host/' }), 'http://host');
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: 'true' }), { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true });
+  assert.ok(_test.buildTlsOptions({ tlsInsecureSkipVerify: 'true' }).dispatcher);
 });
 
 test('resolve context merges config secret and bindings', () => {

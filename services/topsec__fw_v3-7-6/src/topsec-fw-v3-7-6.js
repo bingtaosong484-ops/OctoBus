@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import net from 'node:net';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_LOGIN_PATH = '/TopSec_FW_V376.TopSec_FW_V376/Login';
 export const METHOD_ADD_PATH = '/TopSec_FW_V376.TopSec_FW_V376/AddBlacklistIP';
@@ -223,13 +224,25 @@ const mapHttpError = (status, bodyText) => {
   throw errorWithCode('UNAVAILABLE', `upstream http ${status}`);
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
+const buildTlsOptions = (options = {}) => (options.skipTlsVerify ? { dispatcher: insecureTlsDispatcher } : {});
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const fetchText = async (ctx, url, init = {}, options = {}) => {
-  const tlsOptions = options.skipTlsVerify ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true } : {};
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(ctx));
   let response;
   try {
-    response = await fetch(url, { ...init, timeoutMs: resolveTimeoutMs(ctx), ...tlsOptions });
+    response = await fetch(url, { ...init, signal: timeout.signal, ...buildTlsOptions(options) });
   } catch (err) {
     throw errorWithCode('UNAVAILABLE', err?.cause?.message || err?.message || 'fetch failed');
+  } finally {
+    timeout.clear();
   }
   const text = await response.text();
   if (!ALLOWED_HTTP_STATUSES.has(response.status)) mapHttpError(response.status, text);
@@ -545,6 +558,7 @@ export const _test = {
   appendCommandFields,
   buildEngineHeaders,
   buildSession,
+  buildTlsOptions,
   buildUrlWithQuery,
   cacheIdentity,
   computeCodeRun,
@@ -561,8 +575,10 @@ export const _test = {
   gatherCookies,
   grpcCodeFor,
   hasOwn,
+  insecureTlsDispatcher,
   interpretOperationPayload,
   isValidIP,
+  makeTimeoutSignal,
   mapHttpError,
   md5Hex,
   normalizeBaseUrl,

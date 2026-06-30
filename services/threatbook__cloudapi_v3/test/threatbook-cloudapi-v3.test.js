@@ -140,10 +140,12 @@ test('IpReputation sends default query and returns raw body and raw json', async
   assert.equal(url.searchParams.get('lang'), 'zh');
   assert.equal(url.searchParams.get('resource'), '8.8.8.8');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 25);
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
+  assert.equal(captured.init.insecureSkipVerify, undefined);
   assert.equal(result.http_status, 200);
   assert.match(result.raw_body, /"response_code":0/);
   assert.deepEqual(result.raw_json.structValue.fields.data.structValue.fields.risk, { stringValue: 'low' });
@@ -172,7 +174,8 @@ test('DomainQuery sends default exclude and supports aliases', async () => {
   assert.equal(url.searchParams.get('lang'), 'en');
   assert.equal(url.searchParams.get('resource'), 'example.com');
   assert.equal(url.searchParams.get('exclude'), 'cas');
-  assert.equal(captured.init.timeoutMs, 40);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
   assert.deepEqual(result.raw_json.structValue.fields.data.structValue.fields.kind, { stringValue: 'domain_query' });
 });
 
@@ -304,11 +307,7 @@ test('helper functions cover normalization branches', () => {
   assert.equal(_test.resolveTimeoutMs({ limits: {}, bindings: { timeoutMs: 10 } }), 10);
   assert.equal(_test.resolveTimeoutMs(), 1500);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: 1 }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.equal(_test.buildTlsOptions({ insecureSkipVerify: 1 }).dispatcher, _test.insecureTlsDispatcher);
   assert.deepEqual(_test.mergedBindings({ config: { a: 1 }, secret: { b: 2 }, bindings: { a: 3 } }), { a: 3, b: 2 });
   assert.deepEqual(_test.resolveCallContext({ request: { resource: 'r' } }).req, { resource: 'r' });
   assert.equal(_test.requireResource({ ip: '8.8.4.4' }, 'ip'), '8.8.4.4');
@@ -376,7 +375,8 @@ test('fetchUpstream can be used directly', async () => {
   const result = await _test.fetchUpstream('http://api.local/path', buildCtx({ bindings: { timeoutMs: 15 } }));
   assert.equal(captured.url, 'http://api.local/path');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
   assert.deepEqual(result, { httpStatus: 200, rawBody: 'ok' });
 });
 

@@ -182,8 +182,10 @@ test('AddPreciseBlack signs and sends default payload', async () => {
   const expectedSig = _test.signPayload(captured.url, unsigned, 'block-key');
   assert.equal(captured.url, 'https://tsec.example/cgi-bin/device/external_block_api');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 25);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
   assert.equal(captured.init.headers['Content-Type'], 'application/json');
   assert.equal(captured.init.headers['X-Custom'], 'trace');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst-1');
@@ -328,7 +330,7 @@ test('helper functions cover normalization, signing, TLS, and logging branches',
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: '-1' }, limits: { timeoutMs: 20 } }), 20);
   assert.equal(_test.resolveTimeoutMs({ bindings: {}, limits: { timeoutMs: 0 } }), 5000);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }), { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true });
+  assert.equal(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }).dispatcher, _test.insecureTlsDispatcher);
   assert.deepEqual(_test.buildHeaders({ bindings: { headers: null }, meta: {} }), {
     'Content-Type': 'application/json',
     'x-engine-instance': 'unknown',

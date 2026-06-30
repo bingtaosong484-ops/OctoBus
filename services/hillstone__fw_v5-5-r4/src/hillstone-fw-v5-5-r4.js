@@ -17,6 +17,7 @@ export const DEFAULT_LANG = 'zh_CN';
 export const DEFAULT_TIMEOUT_MS = 5000;
 export const DEFAULT_LIMIT = 50;
 export const DEFAULT_PAGE = 1;
+let insecureDispatcherPromise;
 
 const SESSION_CACHE = new Map();
 
@@ -100,13 +101,48 @@ const resolveTimeoutMs = (ctx) => {
   return Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS;
 };
 
-const buildTlsOptions = (bindings) => {
-  if (!bindings?.skipTlsVerify && !bindings?.tlsInsecureSkipVerify && !bindings?.insecureSkipVerify) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+const shouldSkipTlsVerify = (bindings) => Boolean(bindings?.skipTlsVerify || bindings?.tlsInsecureSkipVerify || bindings?.insecureSkipVerify);
+
+const createTlsDispatcher = async (skipTlsVerify) => {
+  if (!skipTlsVerify) return undefined;
+  insecureDispatcherPromise ??= import('undici').then(({ Agent }) => new Agent({
+    connect: { rejectUnauthorized: false },
+  }));
+  return insecureDispatcherPromise;
+};
+
+const buildTlsOptions = async (bindings) => {
+  const dispatcher = await createTlsDispatcher(shouldSkipTlsVerify(bindings));
+  return dispatcher ? { dispatcher } : {};
+};
+
+const fetchWithTimeout = async (url, init = {}, options = {}) => {
+  const rawTimeout = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      controller.abort(parentSignal.reason);
+    } else if (typeof parentSignal.addEventListener === 'function') {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    }
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const tlsOptions = await buildTlsOptions(options.bindings);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...tlsOptions,
+    });
+  } finally {
+    clearTimeout(timer);
+    if (parentSignal && typeof parentSignal.removeEventListener === 'function') {
+      parentSignal.removeEventListener('abort', abortFromParent);
+    }
+  }
 };
 
 const buildHeaders = (ctx, extra = {}) => ({
@@ -144,11 +180,7 @@ const fetchText = async (ctx, url, init = {}) => {
   const callCtx = resolveCallContext(ctx);
   let response;
   try {
-    response = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(callCtx),
-      ...buildTlsOptions(callCtx.bindings),
-      ...init,
-    });
+    response = await fetchWithTimeout(url, init, { timeoutMs: resolveTimeoutMs(callCtx), bindings: callCtx.bindings });
   } catch (err) {
     throwStructuredError('UNAVAILABLE', 'hillstone upstream request failed', {
       httpStatus: 0,
@@ -391,8 +423,10 @@ rpcdef.__test__ = {
   clearAllSessions,
   clearSession,
   CONTENT_TYPE,
+  createTlsDispatcher,
   errorWithCode,
   extractSessionFromLogin,
+  fetchWithTimeout,
   fetchText,
   firstDefined,
   getInstanceKey,
@@ -418,6 +452,7 @@ rpcdef.__test__ = {
   runQueryAddressGroup,
   runUpdateAddressGroup,
   setSession,
+  shouldSkipTlsVerify,
   throwForHttpStatus,
   throwStructuredError,
   toTrimmedString,

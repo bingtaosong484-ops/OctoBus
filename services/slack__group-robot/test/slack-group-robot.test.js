@@ -137,9 +137,20 @@ test('SendTextMessage returns OK on HTTP 200', async () => {
   assert.equal(res.http_body, 'ok');
   assert.equal(capturedInit.method, 'POST');
   assert.equal(capturedInit.headers['Content-Type'], 'application/json');
-  assert.equal(capturedInit.timeoutMs, 2000);
+  assert.ok(capturedInit.signal instanceof AbortSignal);
+  assert.equal(capturedInit.timeoutMs, undefined);
   assert.deepEqual(JSON.parse(capturedInit.body), { text: 'test message' });
   assert.match(logs.join('\n'), /\\*\\*\\*/); // webhook URL is redacted in logs
+});
+
+test('SendTextMessage rejects unsupported TLS skip bindings', async () => {
+  await assert.rejects(
+    () => rpcdef(buildCtx({
+      req: { message: 'test message' },
+      bindings: { tlsInsecureSkipVerify: true },
+    }))[METHOD_SEND_TEXT_PATH](),
+    (err) => err instanceof GrpcError && err.code === grpcStatus.INVALID_ARGUMENT && /skipTlsVerify is not supported/.test(err.message),
+  );
 });
 
 test('HTTP non-200 responses throw with HTTP details', async () => {

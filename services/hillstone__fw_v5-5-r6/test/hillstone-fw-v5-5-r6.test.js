@@ -130,7 +130,8 @@ test('Login sends correct payload and returns http_status/http_body on success',
 
   assert.equal(captured.url, 'https://device.example:8443/rest/doc/login');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers['Content-Type'], 'text/plain;charset=UTF-8');
   assert.deepEqual(JSON.parse(captured.init.body), {
     userName: 'api_user',
@@ -159,7 +160,8 @@ test('Login reads config and secret aliases with default language and timeout fa
   });
 
   assert.equal(captured.url, 'https://device.example:8443/rest/doc/login');
-  assert.equal(captured.init.timeoutMs, 1500);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(JSON.parse(captured.init.body).lang, 'zh_CN');
   assert.equal(JSON.parse(captured.init.body).userName, 'fallback-user');
   assert.equal(JSON.parse(captured.init.body).password, 'fallback-pass');
@@ -363,9 +365,18 @@ test('TLS flags, exported helpers, service wrapper, and method map are wired', a
 
   await callHandler(METHOD_LOGIN_FULL, {}, buildCtx({ bindings: { skipTlsVerify: true } }));
 
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.equal(typeof service, 'object');
   assert.equal(typeof handlers[METHOD_CREATE_ADDR_GROUP_FULL], 'function');
   assert.equal(typeof handlers[METHOD_UPDATE_ADDR_GROUP_FULL], 'function');
@@ -381,7 +392,7 @@ test('TLS flags, exported helpers, service wrapper, and method map are wired', a
   assert.equal(_test.resolvePassword({}), '');
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: 25 } }), 25);
   assert.equal(_test.resolveTimeoutMs({ limits: {}, bindings: { timeout_ms: 30 } }), 30);
-  assert.deepEqual(_test.buildTlsOptions({}), {});
+  assert.deepEqual(await _test.buildTlsOptions({}), {});
   assert.deepEqual(_test.buildHeaders({ bindings: { headers: { 'X-Test': 'yes' } } }, { Cookie: 'token=abc' }), {
     'X-Test': 'yes',
     'Content-Type': 'text/plain;charset=UTF-8',

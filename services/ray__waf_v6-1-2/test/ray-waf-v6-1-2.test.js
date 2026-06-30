@@ -131,8 +131,10 @@ test('Login reads user/password from config and secret, then caches random', asy
   const result = await callHandler(METHOD_LOGIN_FULL, { host: 'http://device.example:8443/' }, buildCtx({ bindings: { skipTlsVerify: true } }));
   assert.equal(captured.url, 'http://device.example:8443/apicenter/login/?username=api_user&password=SuperSecret');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('skipTlsVerify' in captured.init, false);
   assert.equal(captured.init.headers['X-Custom'], 'demo');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
   assert.equal(result.success, true);
@@ -354,11 +356,7 @@ test('helper functions cover edge cases', () => {
   });
   assert.equal(_test.resolveTimeoutMs({ limits: { timeoutMs: '22.8' }, bindings: { timeoutMs: 11 } }), 22);
   assert.equal(_test.resolveTimeoutMs({ limits: { timeoutMs: -1 }, bindings: { timeoutMs: 11 } }), 11);
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }).dispatcher);
   assert.deepEqual(_test.buildTlsOptions({}), {});
   assert.equal(_test.normalizeSuccess(true), true);
   assert.equal(_test.normalizeSuccess(false), false);

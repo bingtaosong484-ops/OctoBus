@@ -3,6 +3,7 @@
 // Auth: api-key query parameter
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 const DEFAULT_BASE_URL = 'https://hunter.qianxin.com';
 const DEFAULT_TIMEOUT_MS = 15000;
@@ -50,6 +51,19 @@ const normalizeBaseUrl = (url) => {
   return base.replace(/\/$/, '');
 };
 
+const normalizeTimeout = (value) => {
+  const raw = value && typeof value === 'object' && hasOwn(value, 'value') ? value.value : value;
+  const timeout = Number(raw);
+  return Number.isFinite(timeout) && timeout > 0 ? Math.trunc(timeout) : DEFAULT_TIMEOUT_MS;
+};
+
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 // ---- result mapping ----
 
 const mapSearchResult = (item) => ({
@@ -82,14 +96,18 @@ const mapSearchResult = (item) => ({
 export function rpcdef(ctx) {
   const bindings = { ...(ctx?.bindings ?? {}), ...(ctx?.config ?? {}), ...(ctx?.secret ?? {}) };
   const baseUrl = bindings.baseUrl || bindings.base_url || DEFAULT_BASE_URL;
-  const timeoutMs = bindings.timeoutMs || ctx?.limits?.timeoutMs || DEFAULT_TIMEOUT_MS;
+  const timeoutMs = normalizeTimeout(firstDefined(bindings.timeoutMs, bindings.timeout_ms, ctx?.limits?.timeoutMs, DEFAULT_TIMEOUT_MS));
   const defaultPageSize = bindings.defaultPageSize || DEFAULT_PAGE_SIZE;
-  const skipTlsVerify = Boolean(bindings.skipTlsVerify || bindings.skip_tls_verify || bindings.tls_insecure_skip_verify);
+  const skipTlsVerify = Boolean(
+    bindings.skipTlsVerify
+      || bindings.skip_tls_verify
+      || bindings.tlsInsecureSkipVerify
+      || bindings.tls_insecure_skip_verify
+      || bindings.insecureSkipVerify,
+  );
   const meta = ctx?.meta || {};
 
-  const tlsOptions = skipTlsVerify
-    ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true }
-    : {};
+  const tlsOptions = skipTlsVerify ? { dispatcher: getInsecureTlsDispatcher() } : {};
 
   const logFlow = (action, details) => {
     const inst = meta.instance_id || meta.instanceId;
@@ -177,7 +195,7 @@ export function rpcdef(ctx) {
     try {
       res = await fetch(url, {
         method: 'GET',
-        timeoutMs,
+        signal: AbortSignal.timeout(timeoutMs),
         ...tlsOptions,
       });
     } catch (e) {
@@ -298,6 +316,7 @@ export const _test = {
   normalizeBaseUrl,
   unwrapInt32,
   unwrapString,
+  normalizeTimeout,
   mapSearchResult,
   registerHandlers,
 };

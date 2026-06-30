@@ -121,10 +121,12 @@ test('BlockDomain signs URL and sends add payload with explicit remark', async (
   assert.equal(url.searchParams.get('auth_timestamp'), '1700000000');
   assert.equal(url.searchParams.get('sign'), expectedSign);
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 3000);
-  assert.equal(captured.init.insecureSkipVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.insecureSkipVerify, undefined);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
+  assert.equal(captured.init.skipTlsVerify, undefined);
   assert.equal(captured.init.headers['Content-Type'], 'application/json;charset=UTF-8');
   assert.equal(captured.init.headers['X-Product'], 'miner');
   assert.deepEqual(captured.body, {

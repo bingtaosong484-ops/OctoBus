@@ -101,7 +101,8 @@ test('CreateAddress appends vdom query and authorization header', async () => {
 
   assert.equal(captured.url, 'https://device.example:8443/api/v2/cmdb/firewall/address?vdom=root');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.Authorization, 'Bearer fortinet-token');
   assert.equal(captured.init.headers['Content-Type'], 'application/json');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
@@ -385,11 +386,18 @@ test('SDK handlers merge config and secret and expose all methods', async () => 
 
   assert.equal(res.http_status, 200);
   assert.equal(captured.url, 'https://config-device.example/api/v2/cmdb/firewall/address');
-  assert.equal(captured.init.timeoutMs, 3100);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.Authorization, 'Bearer secret-token');
   assert.equal(captured.init.headers['X-Custom'], 'value');
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.ok(service);
 
   assert.deepEqual(Object.keys(handlers).sort(), [
@@ -489,12 +497,10 @@ test('direct handlers cover get, delete, group, and member SDK paths', async () 
 test('helper functions keep legacy-compatible edge behavior', async () => {
   assert.equal(_test.appendQuery('http://x/path', { a: 1, b: '', c: null }), 'http://x/path?a=1');
   assert.equal(_test.appendQuery('http://x/path?x=1', { a: 'two words' }), 'http://x/path?x=1&a=two%20words');
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
-  assert.deepEqual(_test.buildTlsOptions({}), {});
+  const tlsOptions = await _test.buildTlsOptions({ tlsInsecureSkipVerify: true });
+  assert.ok(tlsOptions.dispatcher);
+  assert.equal(Object.hasOwn(tlsOptions, 'tlsInsecureSkipVerify'), false);
+  assert.deepEqual(await _test.buildTlsOptions({}), {});
   assert.equal(_test.toBool('yes'), true);
   assert.equal(_test.toBool('off'), false);
   assert.equal(_test.toBool({}), true);

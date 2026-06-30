@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const BLOCK_IP_PATH = '/Nsfcous_ADS_V45R90F06.Nsfcous_ADS_V45R90F06/BlockIP';
 export const UNBLOCK_IP_PATH = '/Nsfcous_ADS_V45R90F06.Nsfcous_ADS_V45R90F06/UnblockIP';
@@ -207,6 +208,19 @@ const buildTransportErrorDetails = (baseUrl, ip, actionType, reason) => ({
   reason,
 });
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
+const buildFetchInit = (init, timeoutMs, skipTlsVerify) => ({
+  ...init,
+  signal: AbortSignal.timeout(timeoutMs),
+  ...(skipTlsVerify ? { dispatcher: getInsecureTlsDispatcher() } : {}),
+});
+
 const fetchUpstream = async (baseUrl, key, headers, timeoutMs, skipTlsVerify, ip, actionType) => {
   const url = `${baseUrl}${UPSTREAM_PATH}?${encodeQuery({
     auth_key: key,
@@ -214,15 +228,10 @@ const fetchUpstream = async (baseUrl, key, headers, timeoutMs, skipTlsVerify, ip
     action_type: actionType,
     ip,
   })}`;
-  const init = {
+  const init = buildFetchInit({
     method: 'GET',
     headers,
-    timeoutMs,
-  };
-  if (skipTlsVerify) {
-    init.insecureSkipVerify = true;
-    init.tlsInsecureSkipVerify = true;
-  }
+  }, timeoutMs, skipTlsVerify);
 
   try {
     const response = await fetch(url, init);

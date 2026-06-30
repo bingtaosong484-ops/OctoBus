@@ -4,6 +4,7 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
 
 const DEFAULT_TIMEOUT_MS = 1500;
+let insecureDispatcherPromise;
 const MAX_TIME_INTERVAL = 86400;
 const DEFAULT_TIME_INTERVAL = 86400;
 const DEFAULT_LOG_SIZE = 100;
@@ -113,6 +114,43 @@ const extractOriginalValues = (candidate) => {
 };
 
 const firstDefined = (...vals) => vals.find((v) => v !== undefined && v !== null);
+
+const createTlsDispatcher = async (skipTlsVerify) => {
+  if (!skipTlsVerify) return undefined;
+  insecureDispatcherPromise ??= import('undici').then(({ Agent }) => new Agent({
+    connect: { rejectUnauthorized: false },
+  }));
+  return insecureDispatcherPromise;
+};
+
+const fetchWithTimeout = async (url, init = {}, options = {}) => {
+  const timeout = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      controller.abort(parentSignal.reason);
+    } else if (typeof parentSignal.addEventListener === 'function') {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    }
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const dispatcher = await createTlsDispatcher(options.skipTlsVerify);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    });
+  } finally {
+    clearTimeout(timer);
+    if (parentSignal && typeof parentSignal.removeEventListener === 'function') {
+      parentSignal.removeEventListener('abort', abortFromParent);
+    }
+  }
+};
 
 const mergedBindings = (ctx = {}) => ({
   ...(ctx?.config ?? {}),
@@ -388,20 +426,9 @@ export function rpcdef(ctx) {
     'x-request-id': meta.request_id || meta.requestId || 'unknown',
   });
 
-  const tlsOptions = () => (skipTlsVerify
-    ? {
-        insecureSkipVerify: true,
-        tlsInsecureSkipVerify: true,
-      }
-    : {});
-
   const fetchSafeline = async (url, init) => {
     try {
-      return await fetch(url, {
-        ...init,
-        timeoutMs,
-        ...tlsOptions(),
-      });
+      return await fetchWithTimeout(url, init, { timeoutMs, skipTlsVerify });
     } catch (e) {
       const reason = e?.cause?.message || e?.message || 'fetch failed';
       throw errorWithCode('UNAVAILABLE', reason);
@@ -1096,9 +1123,11 @@ export const handlers = {
 };
 
 export const _test = {
+  createTlsDispatcher,
   errorWithCode,
   extractIntList,
   extractOriginalValues,
+  fetchWithTimeout,
   mergedBindings,
   normalizeList,
   parseHeaders,

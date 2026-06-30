@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const LOGIN_PATH = '/RAY_WAF_V612.RAY_WAF_V612/Login';
 export const QUERY_BLACKLIST_PATH = '/RAY_WAF_V612.RAY_WAF_V612/QueryBlacklist';
@@ -96,15 +97,18 @@ const toBoolean = (value) => {
   return false;
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings = {}) => {
   if (!toBoolean(bindings.skipTlsVerify) && !toBoolean(bindings.tlsInsecureSkipVerify) && !toBoolean(bindings.insecureSkipVerify)) {
     return {};
   }
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const buildHeaders = (bindings = {}, meta = {}, extra = {}) => ({
@@ -209,9 +213,9 @@ const fetchJson = async (ctx = {}, url, init = {}) => {
   let res;
   try {
     res = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(callCtx),
-      ...buildTlsOptions(callCtx.bindings),
       ...init,
+      signal: AbortSignal.timeout(resolveTimeoutMs(callCtx)),
+      ...buildTlsOptions(callCtx.bindings),
       headers: buildHeaders(callCtx.bindings, callCtx.meta, init.headers || {}),
     });
   } catch (err) {

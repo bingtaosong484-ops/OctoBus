@@ -70,6 +70,33 @@ const resolveTimeoutMs = (ctx) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const toBoolean = (candidate) => {
+  if (typeof candidate === 'boolean') return candidate;
+  if (typeof candidate === 'number') return Number.isFinite(candidate) && candidate !== 0;
+  if (typeof candidate === 'string') {
+    const normalized = candidate.trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'n', 'off', ''].includes(normalized)) return false;
+  }
+  if (candidate && typeof candidate === 'object' && hasOwn(candidate, 'value')) return toBoolean(candidate.value);
+  return false;
+};
+
+const tlsSkipRequested = (bindings = {}) => (
+  toBoolean(firstDefined(bindings.skipTlsVerify, bindings.tlsInsecureSkipVerify, bindings.insecureSkipVerify))
+);
+
+const assertSupportedTlsConfig = (bindings = {}) => {
+  if (!tlsSkipRequested(bindings)) return;
+  throw errorWithCode('INVALID_ARGUMENT', 'skipTlsVerify is not supported by this service');
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const redactWebhook = (url) => String(url).replace(/\/services\/[^/?#]+\/[^/?#]+\/[^/?#]+/, '/services/***/***/***');
 
 const createLogger = (meta = {}) => (action, details) => {
@@ -89,6 +116,8 @@ const createLogger = (meta = {}) => (action, details) => {
 const buildPayload = (message) => ({ text: message });
 
 const sendToSlack = async (ctx, webhook, payload, log) => {
+  assertSupportedTlsConfig(ctx.bindings || {});
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(ctx));
   log('SendTextMessage:start', {
     webhook: redactWebhook(webhook),
     messageLength: payload.text.length,
@@ -100,7 +129,7 @@ const sendToSlack = async (ctx, webhook, payload, log) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
-      timeoutMs: resolveTimeoutMs(ctx),
+      signal: timeout.signal,
     });
   } catch (err) {
     const reason = err?.cause?.message || err?.message || 'fetch failed';
@@ -109,6 +138,8 @@ const sendToSlack = async (ctx, webhook, payload, log) => {
     error.httpStatus = 0;
     error.httpBody = '';
     throw error;
+  } finally {
+    timeout.clear();
   }
 
   const httpStatus = Number(res.status || 0);
@@ -164,6 +195,7 @@ export const handlers = {
 };
 
 rpcdef.__test__ = {
+  assertSupportedTlsConfig,
   buildPayload,
   coerceString,
   createLogger,
@@ -171,6 +203,7 @@ rpcdef.__test__ = {
   firstDefined,
   handleSendTextMessage,
   hasOwn,
+  makeTimeoutSignal,
   mergedBindings,
   normalizeWebhook,
   redactWebhook,
@@ -180,6 +213,8 @@ rpcdef.__test__ = {
   resolveTimeoutMs,
   resolveWebhook,
   sendToSlack,
+  tlsSkipRequested,
+  toBoolean,
 };
 
 export const _test = rpcdef.__test__;

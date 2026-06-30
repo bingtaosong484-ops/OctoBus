@@ -94,7 +94,8 @@ test('CheckOnline builds authorization header without Basic prefix', async () =>
 
   assert.equal(captured.url, 'https://device.example:90/api/v1.0/System/Status/Online');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.Authorization, Buffer.from('api_user:SuperSecret').toString('base64'));
   assert.equal(captured.init.headers['Content-Type'], 'application/json');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
@@ -279,11 +280,18 @@ test('SDK handlers merge config and secret and expose all methods', async () => 
 
   assert.equal(result.success, true);
   assert.equal(captured.url, 'https://config-device.example/api/v1.0/System/Status/Online');
-  assert.equal(captured.init.timeoutMs, 3100);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.Authorization, Buffer.from('config_user:Secret').toString('base64'));
   assert.equal(captured.init.headers['X-Custom'], 'value');
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.ok(service);
   assert.deepEqual(Object.keys(handlers).sort(), [
     METHOD_BLOCK_IP_FULL,
@@ -321,12 +329,10 @@ test('helper functions keep edge behavior stable', async () => {
   assert.equal(_test.trimString({ value: ' x ' }), 'x');
   assert.equal(_test.toBase64('api_user:SuperSecret'), Buffer.from('api_user:SuperSecret').toString('base64'));
   assert.equal(_test.utf8Bytes('A')[0], 65);
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
-  assert.deepEqual(_test.buildTlsOptions({}), {});
+  const tlsOptions = await _test.buildTlsOptions({ insecureSkipVerify: true });
+  assert.ok(tlsOptions.dispatcher);
+  assert.equal(Object.hasOwn(tlsOptions, 'insecureSkipVerify'), false);
+  assert.deepEqual(await _test.buildTlsOptions({}), {});
   assert.equal(_test.classifyHttpStatus(403), 'PERMISSION_DENIED');
   assert.equal(_test.classifyHttpStatus(404), 'FAILED_PRECONDITION');
   assert.equal(_test.classifyHttpStatus(502), 'UNAVAILABLE');

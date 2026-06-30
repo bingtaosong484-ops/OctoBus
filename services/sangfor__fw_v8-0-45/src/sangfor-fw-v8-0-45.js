@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_LOGIN_PATH = '/Sangfor_FW_V8045.Sangfor_FW_V8045/Login';
 export const METHOD_BLOCK_PATH = '/Sangfor_FW_V8045.Sangfor_FW_V8045/BlockIP';
@@ -173,13 +174,24 @@ const mapHttpError = (res, bodyText) => {
 
 const buildTlsOptions = (bindings = {}) => {
   if (!toBoolean(bindings.skipTlsVerify) && !toBoolean(bindings.tlsInsecureSkipVerify) && !toBoolean(bindings.insecureSkipVerify)) return {};
-  return { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true };
+  return { dispatcher: getInsecureTlsDispatcher() };
+};
+
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
 };
 
 const fetchJson = async (url, init, { bindings = {}, timeoutMs }) => {
   let res;
   try {
-    res = await fetch(url, { ...init, timeoutMs, ...buildTlsOptions(bindings) });
+    res = await fetch(url, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+      ...buildTlsOptions(bindings),
+    });
   } catch (err) {
     const reason = err?.cause?.message || err?.message || 'fetch failed';
     throw errorWithCode('UNAVAILABLE', reason);

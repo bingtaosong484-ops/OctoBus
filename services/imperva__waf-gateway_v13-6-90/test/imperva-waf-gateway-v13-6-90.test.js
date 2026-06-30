@@ -92,7 +92,8 @@ test('CheckOnline authenticates then reads MX version', async () => {
   assert.equal(calls[1].init.method, 'GET');
   assert.equal(calls[1].init.headers.Cookie, 'JSESSIONID=abc');
   assert.equal(calls[1].init.headers['X-Custom'], 'demo');
-  assert.equal(calls[1].init.timeoutMs, 5000);
+  assert.equal(Object.hasOwn(calls[1].init, 'timeoutMs'), false);
+  assert.ok(calls[1].init.signal instanceof AbortSignal);
   assert.equal(result.success, true);
   assert.equal(result.message, '13.6.90');
   assert.equal(result.raw_json.structValue.fields.serverVersion.stringValue, '13.6.90');
@@ -227,7 +228,10 @@ test('UnblockIP posts remove operation to configured IP group', async () => {
 
   assert.equal(calls[1].url, 'https://mx.example:8083/SecureSphere/api/v1/conf/ipGroups/OctoBus%E9%BB%91%E5%90%8D%E5%8D%95IP%E7%BB%84');
   assert.equal(calls[1].init.method, 'PUT');
-  assert.equal(calls[1].init.skipTlsVerify, true);
+  assert.equal(Object.hasOwn(calls[1].init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(calls[1].init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(calls[1].init, 'insecureSkipVerify'), false);
+  assert.ok(calls[1].init.dispatcher);
   assert.deepEqual(JSON.parse(calls[1].init.body).entries[0], {
     type: 'single',
     ipAddressFrom: '2001:db8::1',

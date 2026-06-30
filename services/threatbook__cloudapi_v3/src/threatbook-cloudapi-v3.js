@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_IP_REPUTATION_PATH = '/ThreatBook_CloudAPI_V3.ThreatBook_CloudAPI_V3/IpReputation';
 export const METHOD_DOMAIN_QUERY_PATH = '/ThreatBook_CloudAPI_V3.ThreatBook_CloudAPI_V3/DomainQuery';
@@ -80,14 +81,18 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (bindings = {}) => {
   const enabled = Boolean(bindings.skipTlsVerify || bindings.tlsInsecureSkipVerify || bindings.insecureSkipVerify);
   if (!enabled) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: insecureTlsDispatcher };
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const requireDomain = (ctx = {}) => {
@@ -183,11 +188,12 @@ const mapHttpStatusToGrpcCode = (status) => {
 const fetchUpstream = async (url, ctx = {}) => {
   const bindings = ctx.bindings || {};
   const timeoutMs = resolveTimeoutMs(ctx);
+  const timeout = makeTimeoutSignal(timeoutMs);
   let res;
   try {
     res = await fetch(url, {
       method: 'GET',
-      timeoutMs,
+      signal: timeout.signal,
       ...buildTlsOptions(bindings),
     });
   } catch (err) {
@@ -196,6 +202,8 @@ const fetchUpstream = async (url, ctx = {}) => {
       rawBody: '',
       reason: err?.cause?.message || err?.message || 'fetch failed',
     });
+  } finally {
+    timeout.clear();
   }
 
   const httpStatus = Number(res?.status || 0);
@@ -323,6 +331,8 @@ export const _test = {
   handleDomainQuery,
   handleIpReputation,
   hasOwn,
+  insecureTlsDispatcher,
+  makeTimeoutSignal,
   mapHttpStatusToGrpcCode,
   mergedBindings,
   normalizeBaseUrl,

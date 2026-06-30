@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import net from 'node:net';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_LOGIN_PATH = '/TopSec_FW_5U.TopSec_FW_5U/Login';
 export const METHOD_REFRESH_PATH = '/TopSec_FW_5U.TopSec_FW_5U/Refresh';
@@ -220,16 +221,28 @@ const mapHttpStatusToCode = (status) => {
   return 'UNAVAILABLE';
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
+const buildTlsOptions = (options = {}) => (options.skipTlsVerify ? { dispatcher: insecureTlsDispatcher } : {});
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const fetchText = async (ctx, url, init = {}, options = {}) => {
-  const tlsOptions = options.skipTlsVerify ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true } : {};
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(ctx));
   let response;
   try {
-    response = await fetch(url, { ...init, timeoutMs: resolveTimeoutMs(ctx), ...tlsOptions });
+    response = await fetch(url, { ...init, signal: timeout.signal, ...buildTlsOptions(options) });
   } catch (err) {
     throw errorWithCode('UNAVAILABLE', 'topsec upstream request failed', {
       http_status: 0,
       reason: err?.cause?.message || err?.message || 'fetch failed',
     });
+  } finally {
+    timeout.clear();
   }
   let text = '';
   try {
@@ -550,6 +563,7 @@ export const _test = {
   base64Encode,
   buildEngineHeaders,
   buildSessionContext,
+  buildTlsOptions,
   cacheIdentity,
   decodeTopSecBody,
   encodeForm,
@@ -565,8 +579,10 @@ export const _test = {
   interpretLogout,
   interpretOperation,
   interpretRefresh,
+  insecureTlsDispatcher,
   isObject,
   isValidIP,
+  makeTimeoutSignal,
   mapHttpStatusToCode,
   normalizeBaseUrl,
   parseSuccessfulPayload,

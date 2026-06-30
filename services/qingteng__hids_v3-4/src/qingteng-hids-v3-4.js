@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const LOGIN_PATH = '/QingTeng_HIDS_V34.QingTeng_HIDS_V34/Login';
 export const QUERY_HOST_ASSETS_PATH = '/QingTeng_HIDS_V34.QingTeng_HIDS_V34/QueryHostAssets';
@@ -121,15 +122,18 @@ const resolveTimeoutMs = (ctx = {}) => firstDefined(
   DEFAULT_TIMEOUT_MS,
 );
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings = {}) => {
   if (!toBoolean(bindings.skipTlsVerify) && !toBoolean(bindings.tlsInsecureSkipVerify) && !toBoolean(bindings.insecureSkipVerify)) {
     return {};
   }
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const buildLogPrefix = (ctx = {}, action) => {
@@ -242,9 +246,9 @@ const fetchText = async (ctx, url, init = {}) => {
   let res;
   try {
     res = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(ctx),
-      ...buildTlsOptions(ctx.bindings || {}),
       ...init,
+      signal: AbortSignal.timeout(resolveTimeoutMs(ctx)),
+      ...buildTlsOptions(ctx.bindings || {}),
     });
   } catch (err) {
     throw upstreamError('UNAVAILABLE', 'qingteng upstream request failed', {

@@ -331,8 +331,10 @@ test('executeBlock performs login, address object creation, blacklist add, and l
   assert.equal(calls[0].body.password, expectedSha);
   assert.equal(calls[0].body.password_sha256, expectedSha);
   assert.equal(calls[0].body.loginDomain, 'default');
-  assert.equal(calls[0].init.timeoutMs, 2000);
-  assert.equal(calls[0].init.skipTlsVerify, true);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in calls[0].init, false);
+  assert.ok(calls[0].init.dispatcher);
+  assert.equal('skipTlsVerify' in calls[0].init, false);
   assert.equal(calls[0].init.headers['X-Binding'], 'binding');
   assert.equal(calls[1].init.headers.Authorization, 'Bearer token');
   assert.equal(calls[1].init.headers.authorization, 'Bearer token');

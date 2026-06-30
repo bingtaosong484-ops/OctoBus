@@ -145,10 +145,12 @@ test('Login stores cookie and keys; BlockIP sends Cookie, sign query, headers, T
   assert.equal(loginRes.security_key, '');
   assert.equal(loginRes.raw_body, '');
   assert.equal(loginRes.raw_json, undefined);
-  assert.equal(calls[0].init.timeoutMs, 1500);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in calls[0].init, false);
   assert.equal(calls[0].init.headers['Content-Type'], 'application/json');
   assert.equal(calls[0].init.headers['X-Device'], 'demo');
-  assert.equal(calls[0].init.insecureSkipVerify, true);
+  assert.ok(calls[0].init.dispatcher);
+  assert.equal('insecureSkipVerify' in calls[0].init, false);
   assert.deepEqual(JSON.parse(calls[0].init.body), { username: 'api_user', password: 'SuperSecret!', lang: 'en_US' });
 
   const blockCtx = buildCtx({
@@ -355,7 +357,8 @@ test('config and secret aliases supply bindings, timeout, and headers', async ()
 
   assert.equal(result.code, 2000);
   assert.equal(captured.url, 'http://config.example/api/system/account/login/login');
-  assert.equal(captured.init.timeoutMs, 2500);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
   assert.equal(captured.init.headers['X-Config'], 'yes');
   assert.deepEqual(JSON.parse(captured.init.body), { username: 'secret-user', password: 'secret-pass', lang: 'zh_CN' });
 });
@@ -404,11 +407,7 @@ test('helpers cover scalar, URL, cookie, signing, response, and validation branc
   assert.equal(_test.toBoolean('maybe'), false);
   assert.equal(_test.toBoolean({ value: 1 }), true);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ tlsInsecureSkipVerify: 'yes' }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ tlsInsecureSkipVerify: 'yes' }).dispatcher);
   assert.equal(_test.isValidIPv4('01.1.1.1'), true);
   assert.equal(_test.isValidIPv4('1.1.1'), false);
   assert.equal(_test.isValidIPv4('1.1.1.999'), false);

@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_SEND_TEXT_PATH = '/Feishu_GroupRobot.Feishu_GroupRobot/SendTextMessage';
 export const METHOD_SEND_TEXT_FULL = 'Feishu_GroupRobot.Feishu_GroupRobot/SendTextMessage';
@@ -71,14 +72,18 @@ const resolveTimeoutMs = (ctx) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (bindings) => {
   const enabled = Boolean(bindings?.skipTlsVerify || bindings?.tlsInsecureSkipVerify || bindings?.insecureSkipVerify);
   if (!enabled) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: insecureTlsDispatcher };
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const createLogger = (meta = {}) => (action, details) => {
@@ -116,6 +121,7 @@ const buildPayload = (message) => ({
 });
 
 const sendToFeishu = async (ctx, webhook, payload, log) => {
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(ctx));
   log('SendTextMessage:start', {
     webhook: redactWebhook(webhook),
     messageLength: payload.content.text.length,
@@ -127,12 +133,14 @@ const sendToFeishu = async (ctx, webhook, payload, log) => {
       method: 'POST',
       headers: buildHeaders(ctx),
       body: JSON.stringify(payload),
-      timeoutMs: resolveTimeoutMs(ctx),
+      signal: timeout.signal,
       ...buildTlsOptions(ctx.bindings || {}),
     });
   } catch (err) {
     const reason = err?.cause?.message || err?.message || 'fetch failed';
     throw errorWithCode('UNAVAILABLE', reason);
+  } finally {
+    timeout.clear();
   }
 
   const httpStatus = Number(res.status || 0);
@@ -194,6 +202,8 @@ rpcdef.__test__ = {
   firstDefined,
   hasOwn,
   handleSendTextMessage,
+  insecureTlsDispatcher,
+  makeTimeoutSignal,
   mergedBindings,
   normalizeWebhook,
   redactWebhook,

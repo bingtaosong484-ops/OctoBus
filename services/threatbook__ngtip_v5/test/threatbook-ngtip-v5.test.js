@@ -284,7 +284,7 @@ test('helper functions', async () => {
   assert.equal(_test.grpcCodeFor('NOPE'), grpcStatus.UNKNOWN);
   assert.equal(_test.normalizeBaseUrl('ftp://bad'), '');
   assert.equal(_test.normalizeBaseUrl(' http://10.0.0.1:8090/ '), 'http://10.0.0.1:8090');
-  assert.deepEqual(_test.buildTlsOptions({ skipTlsVerify: true }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
+  assert.equal(_test.buildTlsOptions({ skipTlsVerify: true }).dispatcher, _test.insecureTlsDispatcher);
   assert.equal(_test.encodeQueryPairs({ a: 'x y', b: '', c: null }), 'a=x%20y');
   assert.equal(_test.mapHttpStatusToCode(401), 'PERMISSION_DENIED');
   assert.equal(_test.mapHttpStatusToCode(500), 'UNAVAILABLE');

@@ -160,8 +160,10 @@ test('batches block requests and annotates work orders', async () => {
 
   assert.equal(calls.length, 4);
   assert.equal(calls[0].url, 'https://inet.example.com/api/sky-platform/auth/user/login');
-  assert.equal(calls[0].init.timeoutMs, 5000);
-  assert.equal(calls[0].init.skipTlsVerify, true);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in calls[0].init, false);
+  assert.ok(calls[0].init.dispatcher);
+  assert.equal('skipTlsVerify' in calls[0].init, false);
   assert.equal(calls[0].init.headers['x-engine-instance'], 'inst');
   assert.equal(calls[0].init.headers['x-flow'], 'skycloud');
   assert.equal(calls[2].body.type, 'BLOCKER');
@@ -300,7 +302,7 @@ test('helper functions cover parsing normalization and defaults', () => {
   assert.equal(_test.optionalUint32('0'), undefined);
   assert.equal(_test.resolveTimeoutMs({ limits: { timeoutMs: -1 }, bindings: { timeoutMs: '25' } }), 25);
   assert.equal(_test.resolveTimeoutMs({ limits: { timeoutMs: '11' }, bindings: { timeoutMs: '25' } }), 11);
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: 'on' }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
+  assert.ok(_test.buildTlsOptions({ insecureSkipVerify: 'on' }).dispatcher);
   assert.deepEqual(_test.buildTlsOptions({}), {});
   assert.equal(_test.isIPv4('203.0.113.1'), true);
   assert.equal(_test.isIPv4('203.0.113.999'), false);

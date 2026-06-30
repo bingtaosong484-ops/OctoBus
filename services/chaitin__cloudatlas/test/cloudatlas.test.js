@@ -1373,8 +1373,14 @@ test('skipTlsVerify adds tls options to fetch init', async () => {
   };
 
   await rpcdef(buildCtx({ bindings: { skipTlsVerify: true } }))[LIST_ENTERPRISE_SUBJECTS_PATH]();
-  assert.equal(captured.init.insecureSkipVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
 });
 
 test('no skipTlsVerify omits tls options', async () => {

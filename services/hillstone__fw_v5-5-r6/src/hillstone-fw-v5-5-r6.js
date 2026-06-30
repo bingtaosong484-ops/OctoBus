@@ -16,6 +16,7 @@ export const DEFAULT_LANG = 'zh_CN';
 export const DEFAULT_LIMIT = 100;
 
 const SESSION_CACHE = new Map();
+let insecureDispatcherPromise;
 
 const grpcCodeFor = (code) => ({
   FAILED_PRECONDITION: grpcStatus.FAILED_PRECONDITION,
@@ -103,14 +104,48 @@ const resolveTimeoutMs = (ctx) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
-const buildTlsOptions = (bindings) => {
-  const enabled = Boolean(bindings?.skipTlsVerify || bindings?.tlsInsecureSkipVerify || bindings?.insecureSkipVerify);
-  if (!enabled) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+const shouldSkipTlsVerify = (bindings) => Boolean(bindings?.skipTlsVerify || bindings?.tlsInsecureSkipVerify || bindings?.insecureSkipVerify);
+
+const createTlsDispatcher = async (skipTlsVerify) => {
+  if (!skipTlsVerify) return undefined;
+  insecureDispatcherPromise ??= import('undici').then(({ Agent }) => new Agent({
+    connect: { rejectUnauthorized: false },
+  }));
+  return insecureDispatcherPromise;
+};
+
+const buildTlsOptions = async (bindings) => {
+  const dispatcher = await createTlsDispatcher(shouldSkipTlsVerify(bindings));
+  return dispatcher ? { dispatcher } : {};
+};
+
+const fetchWithTimeout = async (url, init = {}, options = {}) => {
+  const rawTimeout = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      controller.abort(parentSignal.reason);
+    } else if (typeof parentSignal.addEventListener === 'function') {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    }
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const tlsOptions = await buildTlsOptions(options.bindings);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...tlsOptions,
+    });
+  } finally {
+    clearTimeout(timer);
+    if (parentSignal && typeof parentSignal.removeEventListener === 'function') {
+      parentSignal.removeEventListener('abort', abortFromParent);
+    }
+  }
 };
 
 const buildHeaders = (ctx, extra = {}) => ({
@@ -229,11 +264,7 @@ const fetchWithStatus = async (url, init, ctx) => {
   const callCtx = resolveCallContext(ctx);
   let res;
   try {
-    res = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(callCtx),
-      ...buildTlsOptions(callCtx.bindings),
-      ...init,
-    });
+    res = await fetchWithTimeout(url, init, { timeoutMs: resolveTimeoutMs(callCtx), bindings: callCtx.bindings });
   } catch (err) {
     const errMsg = err?.cause?.message || err?.message || 'fetch failed';
     logFlow(callCtx, 'fetch:error', { url, error: errMsg });
@@ -399,8 +430,11 @@ export const _test = {
   buildTlsOptions,
   clearAllSessions,
   clearSession,
+  createTlsDispatcher,
   errorWithCode,
   extractSessionFromLogin,
+  fetchWithTimeout,
+  fetchWithStatus,
   getInstanceKey,
   getSession,
   normalizeAddrGroups,
@@ -410,6 +444,7 @@ export const _test = {
   resolveTimeoutMs,
   resolveUsername,
   setSession,
+  shouldSkipTlsVerify,
   throwForStatus,
   toInteger,
 };

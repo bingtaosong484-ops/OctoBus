@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_LOGIN_PATH = '/TopSec_FW_2U.TopSec_FW_2U/Login';
 export const METHOD_ACTIVATE_PATH = '/TopSec_FW_2U.TopSec_FW_2U/ActivatePermission';
@@ -192,16 +193,20 @@ const toBoolean = (value) => {
   return false;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (ctx = {}) => {
   const bindings = ctx.bindings || {};
   if (toBoolean(bindings.skipTlsVerify) || toBoolean(bindings.tlsInsecureSkipVerify) || toBoolean(bindings.insecureSkipVerify)) {
-    return {
-      skipTlsVerify: true,
-      tlsInsecureSkipVerify: true,
-      insecureSkipVerify: true,
-    };
+    return { dispatcher: insecureTlsDispatcher };
   }
   return {};
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const utf8Encode = (input) => Buffer.from(String(input || ''), 'utf8');
@@ -354,16 +359,19 @@ const readResponseBodyText = async (response) => {
 };
 
 const fetchText = async (ctx, url, init = {}) => {
+  const timeout = makeTimeoutSignal(readTimeoutMs(ctx));
   let response;
   try {
     response = await fetch(url, {
       ...init,
-      timeoutMs: readTimeoutMs(ctx),
+      signal: timeout.signal,
       ...buildTlsOptions(ctx),
     });
   } catch (error) {
     const reason = error?.cause?.message || error?.message || 'fetch failed';
     throw errorWithCode('UNAVAILABLE', reason);
+  } finally {
+    timeout.clear();
   }
   return {
     statusCode: Number(response?.status) || 0,
@@ -562,8 +570,10 @@ export const _test = {
   gatherCookies,
   grpcCodeFor,
   hasOwn,
+  insecureTlsDispatcher,
   isIPv4,
   isIPv6,
+  makeTimeoutSignal,
   normalizeCookie,
   normalizeHost,
   readIpList,

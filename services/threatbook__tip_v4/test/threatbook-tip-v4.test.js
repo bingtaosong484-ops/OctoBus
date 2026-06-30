@@ -123,10 +123,12 @@ test('QueryIPReputation sends request and returns raw HTTP body on success', asy
   assert.equal(url.searchParams.get('resource'), '8.8.8.8');
   assert.equal(url.searchParams.get('lang'), 'zh');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
+  assert.equal(captured.init.insecureSkipVerify, undefined);
   assert.equal(result.http_status, 200);
   assert.match(result.http_body, /"response_code":0/);
 });
@@ -231,11 +233,7 @@ test('helper functions cover normalization, mapping, logging, and direct fetch b
   assert.equal(_test.resolveTimeoutMs({ limits: { timeoutMs: 'bad' }, bindings: { timeoutMs: 15 } }), 1500);
   assert.equal(_test.resolveTimeoutMs({ limits: {}, bindings: { timeoutMs: 15 } }), 15);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.equal(_test.buildTlsOptions({ insecureSkipVerify: true }).dispatcher, _test.insecureTlsDispatcher);
   assert.equal(_test.requireIp({ resource: { value: '1.1.1.1' } }), '1.1.1.1');
   assert.equal(_test.encodeQueryPairs({ a: 'x y', b: '', c: null, d: 0 }), 'a=x%20y&d=0');
   assert.equal(_test.buildQueryUrl('https://api.local', { a: 'b' }), 'https://api.local/tip_api/v4/ip?a=b');

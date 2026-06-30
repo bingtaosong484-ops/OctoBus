@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_SEND_TEXT_PATH = '/Tencent_QYWeiXin_GroupRobot.Tencent_QYWeiXin_GroupRobot/SendText';
 export const METHOD_SEND_TEXT_FULL = 'Tencent_QYWeiXin_GroupRobot.Tencent_QYWeiXin_GroupRobot/SendText';
@@ -117,7 +118,15 @@ const toBoolean = (value) => {
 
 const buildTlsOptions = (bindings = {}) => {
   if (!toBoolean(bindings.skipTlsVerify) && !toBoolean(bindings.tlsInsecureSkipVerify) && !toBoolean(bindings.insecureSkipVerify)) return {};
-  return { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true };
+  return { dispatcher: insecureTlsDispatcher };
+};
+
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const buildHeaders = (ctx = {}) => {
@@ -164,11 +173,12 @@ const mapHttpStatusToCode = (status) => {
 };
 
 const fetchWecom = async (ctx, webhook, payload) => {
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(ctx));
   let response;
   try {
     response = await fetch(webhook, {
       method: 'POST',
-      timeoutMs: resolveTimeoutMs(ctx),
+      signal: timeout.signal,
       headers: buildHeaders(ctx),
       body: JSON.stringify(payload),
       ...buildTlsOptions(ctx.bindings || {}),
@@ -179,6 +189,8 @@ const fetchWecom = async (ctx, webhook, payload) => {
       httpBody: '',
       reason: err?.cause?.message || err?.message || 'fetch failed',
     });
+  } finally {
+    timeout.clear();
   }
 
   let bodyText;
@@ -271,6 +283,8 @@ export const _test = {
   grpcCodeFor,
   handleSendText,
   hasOwn,
+  insecureTlsDispatcher,
+  makeTimeoutSignal,
   mapHttpStatusToCode,
   mergedBindings,
   optionalUint32,

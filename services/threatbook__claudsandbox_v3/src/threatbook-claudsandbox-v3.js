@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_UPLOAD_FILE_PATH = '/ThreatBook_ClaudSandbox_V3.ThreatBook_ClaudSandbox_V3/UploadFile';
 export const METHOD_UPLOAD_FILE_FULL = 'ThreatBook_ClaudSandbox_V3.ThreatBook_ClaudSandbox_V3/UploadFile';
@@ -84,14 +85,18 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (bindings = {}) => {
   const enabled = Boolean(bindings.skipTlsVerify || bindings.tlsInsecureSkipVerify || bindings.insecureSkipVerify);
   if (!enabled) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: insecureTlsDispatcher };
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const requireDomain = (ctx = {}) => {
@@ -172,11 +177,12 @@ const mapHttpStatusToGrpcCode = (status) => {
 const fetchUpstream = async (url, init, ctx = {}) => {
   const bindings = ctx.bindings || {};
   const timeoutMs = resolveTimeoutMs(ctx);
+  const timeout = makeTimeoutSignal(timeoutMs);
   let res;
   try {
     res = await fetch(url, {
       ...init,
-      timeoutMs,
+      signal: timeout.signal,
       ...buildTlsOptions(bindings),
     });
   } catch (err) {
@@ -185,6 +191,8 @@ const fetchUpstream = async (url, init, ctx = {}) => {
       rawBody: '',
       reason: err?.cause?.message || err?.message || 'fetch failed',
     });
+  } finally {
+    timeout.clear();
   }
 
   const httpStatus = Number(res?.status || 0);
@@ -474,7 +482,9 @@ export const _test = {
   handleGetMultiEnginesReport,
   handleUploadFile,
   hasOwn,
+  insecureTlsDispatcher,
   isValidBase64,
+  makeTimeoutSignal,
   mapFileReportResponse,
   mapHttpStatusToGrpcCode,
   mapMultiEngines,

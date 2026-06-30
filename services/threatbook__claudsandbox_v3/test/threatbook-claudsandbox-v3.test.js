@@ -151,8 +151,10 @@ test('UploadFile sends multipart form and maps uploaded file data', async () => 
 
   assert.equal(captured.url, 'https://api.threatbook.cn/v3/file/upload');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 25);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
   assert.equal(captured.init.body.get('apikey'), 'test_api_key');
   assert.equal(captured.init.body.get('sandbox_type'), 'win7_sp1_enx86_office2013');
   assert.equal(captured.init.body.get('run_time'), '60');

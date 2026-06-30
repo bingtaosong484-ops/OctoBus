@@ -92,7 +92,8 @@ test('UpdateAddressGroup succeeds and sends a single PUT XML request', async () 
 
   assert.equal(captured.url, 'https://device.example:8447/restconf/data/huawei-address-set:address-set/addr-group=public,Block_Group_1');
   assert.equal(captured.init.method, 'PUT');
-  assert.equal(captured.init.timeoutMs, 4000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers['Content-Type'], 'application/yang-data+xml');
   assert.equal(captured.init.headers.Accept, 'application/yang-data+xml');
   assert.match(captured.init.headers.Authorization, /^Basic\s+/);
@@ -303,9 +304,18 @@ test('UpdateAddressGroup passes TLS skip flags when configured', async () => {
     bindings: { skipTlsVerify: true },
   }));
 
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
 });
 
 test('config and secret aliases provide defaults while request business fields win', async () => {
@@ -339,7 +349,8 @@ test('config and secret aliases provide defaults while request business fields w
   });
 
   assert.equal(captured.url, 'https://device.example:8447/restconf/data/huawei-address-set:address-set/addr-group=public,Request_Book');
-  assert.equal(captured.init.timeoutMs, 4500);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers['X-Trace'], 'abc');
   assert.equal(Buffer.from(captured.init.headers.Authorization.replace(/^Basic\s+/, ''), 'base64').toString(), 'secret_user:secret-pass');
   assert.deepEqual(result.request_headers, {});

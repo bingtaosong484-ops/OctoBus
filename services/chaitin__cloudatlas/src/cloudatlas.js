@@ -4,6 +4,7 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
 
 const DEFAULT_TIMEOUT_MS = 15000;
+let insecureDispatcherPromise;
 
 // ── gRPC status code mapping ──────────────────────────────────────────
 
@@ -162,6 +163,43 @@ const unwrapList = (source) => {
 
 const firstDefined = (...vals) => vals.find((v) => v !== undefined && v !== null);
 
+const createTlsDispatcher = async (skipTlsVerify) => {
+  if (!skipTlsVerify) return undefined;
+  insecureDispatcherPromise ??= import('undici').then(({ Agent }) => new Agent({
+    connect: { rejectUnauthorized: false },
+  }));
+  return insecureDispatcherPromise;
+};
+
+const fetchWithTimeout = async (url, init = {}, options = {}) => {
+  const timeout = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(timeout) && timeout > 0 ? timeout : DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      controller.abort(parentSignal.reason);
+    } else if (typeof parentSignal.addEventListener === 'function') {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    }
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const dispatcher = await createTlsDispatcher(options.skipTlsVerify);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    });
+  } finally {
+    clearTimeout(timer);
+    if (parentSignal && typeof parentSignal.removeEventListener === 'function') {
+      parentSignal.removeEventListener('abort', abortFromParent);
+    }
+  }
+};
+
 const toQueryNumber = (val, allowZero = false) => {
   if (val === undefined || val === null) return undefined;
   if (typeof val === 'object' && 'value' in val) return toQueryNumber(val.value, allowZero);
@@ -261,20 +299,9 @@ export function rpcdef(ctx) {
     'x-request-id': meta.request_id || meta.requestId || 'unknown',
   });
 
-  const tlsOptions = () => (skipTlsVerify
-    ? {
-        insecureSkipVerify: true,
-        tlsInsecureSkipVerify: true,
-      }
-    : {});
-
   const fetchCloudAtlas = async (url, init) => {
     try {
-      return await fetch(url, {
-        ...init,
-        timeoutMs,
-        ...tlsOptions(),
-      });
+      return await fetchWithTimeout(url, init, { timeoutMs, skipTlsVerify });
     } catch (e) {
       const reason = e?.cause?.message || e?.message || 'fetch failed';
       throw errorWithCode('UNAVAILABLE', reason);
@@ -2134,7 +2161,9 @@ export const handlers = {
 
 export const _test = {
   buildQuery,
+  createTlsDispatcher,
   errorWithCode,
+  fetchWithTimeout,
   grpcCodeFor,
   mergedBindings,
   normalizeBaseUrl,

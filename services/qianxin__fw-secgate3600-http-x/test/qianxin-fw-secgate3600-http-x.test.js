@@ -139,8 +139,10 @@ test('Login builds GET query from secret and sanitizes response surface', async 
   }))[LOGIN_PATH]();
 
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 2222);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('skipTlsVerify' in captured.init, false);
   assert.equal(captured.init.headers['x-engine-instance'], 'inst-1');
   assert.equal(captured.init.headers['x-request-id'], 'req-1');
   assert.ok(!('content-type' in captured.init.headers));
@@ -309,21 +311,9 @@ test('helpers cover scalar, URL, timeout, headers, body, response, and fallback 
   assert.equal(_test.toBoolean('maybe'), false);
   assert.equal(_test.toBoolean({ value: 0 }), false);
   assert.deepEqual(_test.buildTlsOptions({ bindings: {} }), {});
-  assert.deepEqual(_test.buildTlsOptions({ bindings: { skipTlsVerify: true } }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
-  assert.deepEqual(_test.buildTlsOptions({ bindings: { tlsInsecureSkipVerify: 1 } }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
-  assert.deepEqual(_test.buildTlsOptions({ bindings: { insecureSkipVerify: 'yes' } }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ bindings: { skipTlsVerify: true } }).dispatcher);
+  assert.ok(_test.buildTlsOptions({ bindings: { tlsInsecureSkipVerify: 1 } }).dispatcher);
+  assert.ok(_test.buildTlsOptions({ bindings: { insecureSkipVerify: 'yes' } }).dispatcher);
   assert.deepEqual(_test.buildHeaders({ bindings: {}, meta: { instanceId: 'camel-inst', requestId: 'camel-req' } }), {
     'x-engine-instance': 'camel-inst',
     'x-request-id': 'camel-req',

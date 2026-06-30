@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_SYNC_PATH = '/RiverSafeplusd_WAF.RiverSafeplusd_WAF/SyncIPBlacklist';
 export const METHOD_SYNC_FULL = 'RiverSafeplusd_WAF.RiverSafeplusd_WAF/SyncIPBlacklist';
@@ -218,6 +219,13 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(value) && value > 0 ? value : DEFAULT_TIMEOUT_MS;
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildLogPrefix = (meta = {}, action) => {
   const trace = [];
   if (meta.instance_id || meta.instanceId) trace.push(`inst=${meta.instance_id || meta.instanceId}`);
@@ -274,8 +282,8 @@ const syncIPBlacklist = async (req = {}, ctx = {}) => {
     method: 'POST',
     headers: buildHeaders(bindings, meta),
     body,
-    timeoutMs: resolveTimeoutMs(callCtx),
-    ...(skipTlsVerify ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true } : {}),
+    signal: AbortSignal.timeout(resolveTimeoutMs(callCtx)),
+    ...(skipTlsVerify ? { dispatcher: getInsecureTlsDispatcher() } : {}),
   };
 
   logFlow(meta, 'SyncIPBlacklist:start', { host: baseUrl, item_count: normalizedItems.length });

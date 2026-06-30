@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_BATCH_BLOCK_PATH = '/ThreatBook_OneSIG.ThreatBook_OneSIG/BatchBlockIP';
 export const METHOD_LIST_ENTRIES_PATH = '/ThreatBook_OneSIG.ThreatBook_OneSIG/ListInboundBlacklistEntries';
@@ -257,6 +258,16 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
+const buildTlsOptions = (bindings = {}) => (bindings.skipTlsVerify ? { dispatcher: insecureTlsDispatcher } : {});
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const callOneSig = async ({
   action,
   meta,
@@ -281,8 +292,8 @@ const callOneSig = async ({
     'x-engine-instance': meta?.instance_id || meta?.instanceId || 'unknown',
     'x-request-id': meta?.request_id || meta?.requestId || 'unknown',
   };
-  const tlsOptions = bindings.skipTlsVerify ? { insecureSkipVerify: true, skipTlsVerify: true, tlsInsecureSkipVerify: true } : {};
   const payload = body === undefined ? {} : body;
+  const timeout = makeTimeoutSignal(timeoutMs);
   logFlow(meta, `${action}:request`, {
     url,
     method,
@@ -300,12 +311,14 @@ const callOneSig = async ({
       method,
       headers,
       body: JSON.stringify(payload),
-      timeoutMs,
-      ...tlsOptions,
+      signal: timeout.signal,
+      ...buildTlsOptions(bindings),
     });
   } catch (err) {
     logFlow(meta, `${action}:network-error`, { message: err?.message });
     throw errorWithCode('UNAVAILABLE', err?.message || 'fetch failed');
+  } finally {
+    timeout.clear();
   }
 
   let text;
@@ -491,6 +504,7 @@ export const handlers = {
 export const _test = {
   buildLogPrefix,
   buildSignedUrl,
+  buildTlsOptions,
   callOneSig,
   computeHmacSha1Base64,
   computeTimestampValue,
@@ -504,7 +518,9 @@ export const _test = {
   handleBatchUnblock,
   handleListEntries,
   hasOwn,
+  insecureTlsDispatcher,
   logFlow,
+  makeTimeoutSignal,
   mapEntriesToProto,
   matchSupportedValue,
   mergedBindings,

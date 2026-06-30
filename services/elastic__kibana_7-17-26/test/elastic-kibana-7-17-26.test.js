@@ -88,7 +88,8 @@ test('CheckStatus calls /api/status with basic auth', async () => {
 
   assert.equal(captured.url, 'http://kibana.local:8443/api/status');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.Accept, 'application/json');
   assert.equal(captured.init.headers['kbn-xsrf'], 'octobus');
   assert.equal(captured.init.headers['kbn-version'], '7.17.26');
@@ -332,7 +333,7 @@ test('maps HTTP and network failures with response details', async () => {
   );
 });
 
-test('helpers cover aliases and tls options', () => {
+test('helpers cover aliases and tls options', async () => {
   assert.equal(_test.grpcCodeFor('NOPE'), grpcStatus.UNKNOWN);
   assert.equal(_test.errorWithCode('NOPE', 'bad').code, grpcStatus.UNKNOWN);
   assert.equal(_test.hasOwn(null, 'x'), false);
@@ -349,12 +350,10 @@ test('helpers cover aliases and tls options', () => {
   assert.equal(_test.resolveKbnVersion({ kbn_version: '7.17.25' }), '7.17.25');
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: 15 } }), 15);
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: -1 } }), 1500);
-  assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ skipTlsVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.deepEqual(await _test.buildTlsOptions({}), {});
+  const tlsOptions = await _test.buildTlsOptions({ skipTlsVerify: true });
+  assert.ok(tlsOptions.dispatcher);
+  assert.equal(Object.hasOwn(tlsOptions, 'skipTlsVerify'), false);
   assert.equal(_test.encodeQueryPairs({ a: 'x y', b: '', c: null, d: 0 }), 'a=x%20y&d=0');
   assert.equal(_test.appendQuery('http://kibana/api/status?x=1', { a: 'b' }), 'http://kibana/api/status?x=1&a=b');
   assert.equal(_test.buildApiUrl('http://kibana', '/api/status'), 'http://kibana/api/status');

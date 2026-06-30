@@ -224,7 +224,10 @@ test('AggregateDetectLogBySrcIP forwards query, headers, TLS flag, and maps reco
   assert.equal(captured.url, 'http://localhost:18080/api/DetectLogAggregateView?time_interval=60&log_size=2&condition=attack_type');
   assert.equal(captured.init.method, 'GET');
   assert.equal(captured.init.headers['API-TOKEN'], 'token');
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.equal(res.records[0].event_id, 'evt-1');
   assert.equal(res.records[0].src_ip, '1.1.1.1');
   assert.equal(res.records[0].count, 2);

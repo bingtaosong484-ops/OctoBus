@@ -127,7 +127,9 @@ test('Login uses password and AES material from ctx.secret and sanitizes respons
   assert.equal(captured.form.name, 'admin');
   assert.equal(decryptAesZeroPadHex(captured.form.password), PASSWORD);
   assert.equal(decryptAesZeroPadHex(captured.form.ngtosAuth), String(PASSWORD.length));
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
   assert.deepEqual(res, { success: true, message: 'login success' });
   assert.equal(Object.hasOwn(res, 'session'), false);
   assert.equal(Object.hasOwn(res, 'raw'), false);

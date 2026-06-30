@@ -113,10 +113,12 @@ test('sends text payload with mentioned_list when mobiles are empty', async () =
 
   assert.equal(captured.url, 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=token');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 10_000);
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
+  assert.equal(captured.init.insecureSkipVerify, undefined);
   assert.equal(captured.init.headers['content-type'], 'application/json');
   assert.equal(captured.init.headers.accept, 'application/json, */*;q=0.8');
   assert.equal(captured.init.headers['X-Trace'], 'demo');
@@ -271,7 +273,7 @@ test('helper functions cover normalization branches', async () => {
   assert.equal(_test.toBoolean('off'), false);
   assert.equal(_test.toBoolean('maybe'), false);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: 'on' }), { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true });
+  assert.equal(_test.buildTlsOptions({ insecureSkipVerify: 'on' }).dispatcher, _test.insecureTlsDispatcher);
   assert.deepEqual(_test.buildHeaders({ bindings: { headers: null } }), { 'content-type': 'application/json', accept: 'application/json, */*;q=0.8' });
   assert.equal(_test.requireWebhook('https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=token'), 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=token');
   assert.deepEqual(_test.splitMentionedMobiles(' 1, ,2 '), ['1', '2']);

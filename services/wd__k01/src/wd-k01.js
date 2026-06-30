@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_BLOCK_IP_PATH = '/WD_K01.WD_K01/BlockIP';
 export const METHOD_UNBLOCK_IP_PATH = '/WD_K01.WD_K01/UnblockIP';
@@ -114,9 +115,17 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (bindings = {}) => {
   const enabled = pickFirstBoolean([bindings.skipTlsVerify, bindings.tlsInsecureSkipVerify, bindings.insecureSkipVerify]) || false;
-  return enabled ? { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true } : {};
+  return enabled ? { dispatcher: insecureTlsDispatcher } : {};
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const sanitizeHeaders = (headers) => {
@@ -148,16 +157,19 @@ const throwForHttpStatus = (status, text) => {
 
 const fetchRaw = async (ctx, url, init = {}) => {
   const callCtx = resolveCallContext(ctx);
+  const timeout = makeTimeoutSignal(resolveTimeoutMs(callCtx));
   let response;
   try {
     response = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(callCtx),
+      signal: timeout.signal,
       ...buildTlsOptions(callCtx.bindings),
       ...init,
       headers: buildHeaders(callCtx.bindings, callCtx.meta, init.headers || {}),
     });
   } catch (err) {
     throw errorWithCode('UNAVAILABLE', err?.cause?.message || err?.message || 'fetch failed');
+  } finally {
+    timeout.clear();
   }
   const text = await response.text();
   if (!response.ok) throwForHttpStatus(response.status, text);
@@ -386,10 +398,12 @@ export const _test = {
   handleLogout,
   handleUnblock,
   hasOwn,
+  insecureTlsDispatcher,
   isBlockSemanticSuccess,
   isIPv4,
   isUnblockSemanticSuccess,
   logFlow,
+  makeTimeoutSignal,
   msgContains,
   normalizeBaseUrl,
   normalizeIpMask,

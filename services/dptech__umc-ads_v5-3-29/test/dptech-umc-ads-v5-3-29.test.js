@@ -79,7 +79,8 @@ test('Login uses bindings credentials and caches token for later query', async (
 
   assert.equal(loginCaptured.url, 'https://203.0.113.10:8443/UMC/restful/token/getRestfulInterfaceToken');
   assert.equal(loginCaptured.init.method, 'POST');
-  assert.equal(loginCaptured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(loginCaptured.init, 'timeoutMs'), false);
+  assert.ok(loginCaptured.init.signal instanceof AbortSignal);
   assert.equal(loginCaptured.init.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(loginCaptured.init.body), {
     userName: 'api_user',
@@ -310,8 +311,12 @@ test('SDK handlers merge config and secret fields', async () => {
   });
 
   assert.equal(captured.url, 'https://umc.example.local/UMC/restful/token/getRestfulInterfaceToken');
-  assert.equal(captured.init.timeoutMs, 3100);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.equal(captured.init.headers['X-Trace'], 'abc');
   assert.deepEqual(JSON.parse(captured.init.body), { userName: 'secret_user', secretKey: 'secret_password' });
   assert.equal(result.raw_body, '');

@@ -162,8 +162,10 @@ test('Login sends secret credentials and caches cookie for later calls', async (
 
   assert.equal(loginCaptured.url, 'https://203.0.113.10:8443/v1.0/login');
   assert.equal(loginCaptured.init.method, 'POST');
-  assert.equal(loginCaptured.init.timeoutMs, 10_000);
-  assert.equal(loginCaptured.init.insecureSkipVerify, true);
+  assert.ok(loginCaptured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in loginCaptured.init, false);
+  assert.ok(loginCaptured.init.dispatcher);
+  assert.equal('insecureSkipVerify' in loginCaptured.init, false);
   assert.equal(loginCaptured.init.headers['Content-Type'], 'application/json');
   assert.equal(loginCaptured.init.headers['X-Extra'], 'demo');
   assert.deepEqual(JSON.parse(loginCaptured.init.body), { username: 'api_user', password: 'SuperSecret!' });
@@ -401,8 +403,10 @@ test('config and secret aliases supply bindings, timeout, TLS, and headers', asy
 
   assert.equal(result.success, true);
   assert.equal(captured.url, 'https://198.51.100.1:8443/v1.0/login');
-  assert.equal(captured.init.timeoutMs, 2500);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('skipTlsVerify' in captured.init, false);
   assert.equal(captured.init.headers['X-Config'], 'yes');
   assert.deepEqual(JSON.parse(captured.init.body), { username: 'secret-user', password: 'secret-pass' });
 });
@@ -435,11 +439,7 @@ test('helpers cover parser, scalar, cookie, schema, and normalization branches',
   assert.equal(_test.toBoolean('maybe'), false);
   assert.equal(_test.toBoolean({ value: 1 }), true);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ skipTlsVerify: 'yes' }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ skipTlsVerify: 'yes' }).dispatcher);
   assert.equal(_test.toInt64('42.9'), 42);
   assert.equal(_test.toInt64('bad', 7), 7);
   assert.equal(_test.toInt64('', 7), 7);

@@ -514,7 +514,10 @@ test('Search passes skipTlsVerify', async () => {
   );
 
   await handler();
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('insecureSkipVerify' in captured.init, false);
 });
 
 // ---- SDK handler ----

@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_QUERY_IP_REPUTATION_PATH = '/ThreatBook_TIP_V4.ThreatBook_TIP_V4/QueryIPReputation';
 export const METHOD_QUERY_IP_REPUTATION_FULL = 'ThreatBook_TIP_V4.ThreatBook_TIP_V4/QueryIPReputation';
@@ -76,14 +77,18 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
 const buildTlsOptions = (bindings = {}) => {
   const enabled = Boolean(bindings.skipTlsVerify || bindings.tlsInsecureSkipVerify || bindings.insecureSkipVerify);
   if (!enabled) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: insecureTlsDispatcher };
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
 };
 
 const requireDomain = (ctx = {}) => {
@@ -140,17 +145,20 @@ const attachResponse = (err, response) => {
 const fetchWithStatus = async (url, ctx = {}) => {
   const bindings = ctx.bindings || {};
   const timeoutMs = resolveTimeoutMs(ctx);
+  const timeout = makeTimeoutSignal(timeoutMs);
   let res;
   try {
     res = await fetch(url, {
       method: 'GET',
-      timeoutMs,
+      signal: timeout.signal,
       ...buildTlsOptions(bindings),
     });
   } catch (err) {
     const errMsg = err?.cause?.message || err?.message || 'fetch failed';
     logFlow(ctx, 'fetch:error', { url, error: errMsg });
     return { httpStatus: 0, httpBody: errMsg };
+  } finally {
+    timeout.clear();
   }
   let httpBody;
   try {
@@ -216,6 +224,8 @@ export const _test = {
   grpcCodeFor,
   handleQueryIPReputation,
   hasOwn,
+  insecureTlsDispatcher,
+  makeTimeoutSignal,
   logFlow,
   mapHttpStatusToCode,
   mergedBindings,

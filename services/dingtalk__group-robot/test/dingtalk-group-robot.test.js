@@ -158,7 +158,8 @@ test('SendTextMessage returns success on HTTP 200 and signs URL', async () => {
   assert.match(capturedUrl, /timestamp=/);
   assert.match(capturedUrl, /sign=/);
   assert.equal(capturedInit.method, 'POST');
-  assert.equal(capturedInit.timeoutMs, 2000);
+  assert.ok(capturedInit.signal instanceof AbortSignal);
+  assert.equal(capturedInit.timeoutMs, undefined);
   assert.equal(capturedInit.headers['Content-Type'], 'application/json');
   assert.deepEqual(JSON.parse(capturedInit.body), {
     msgtype: 'text',
@@ -170,6 +171,19 @@ test('SendTextMessage returns success on HTTP 200 and signs URL', async () => {
     },
   });
   assert.match(logs.join('\n'), /access_token=\*\*\*/);
+});
+
+test('SendTextMessage rejects unsupported TLS skip bindings', async () => {
+  await assert.rejects(
+    () => rpcdef(buildCtx({
+      req: { send_msg: 'test message' },
+      bindings: { skipTlsVerify: true },
+    }))[METHOD_SEND_TEXT_PATH](),
+    (err) => err instanceof GrpcError && err.code === grpcStatus.INVALID_ARGUMENT && /skipTlsVerify is not supported/.test(err.message),
+  );
+
+  assert.equal(_test.tlsSkipRequested({ tlsInsecureSkipVerify: 'on' }), true);
+  assert.doesNotThrow(() => _test.assertSupportedTlsConfig({ skipTlsVerify: false }));
 });
 
 test('HTTP 200 with non-zero errcode still returns OK payload', async () => {

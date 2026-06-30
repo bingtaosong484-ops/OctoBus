@@ -106,6 +106,21 @@ const resolveTimeoutMs = (ctx) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const tlsSkipRequested = (bindings = {}) => (
+  toBoolean(firstDefined(bindings.skipTlsVerify, bindings.tlsInsecureSkipVerify, bindings.insecureSkipVerify))
+);
+
+const assertSupportedTlsConfig = (bindings = {}) => {
+  if (!tlsSkipRequested(bindings)) return;
+  throw errorWithCode('INVALID_ARGUMENT', 'skipTlsVerify is not supported by this service');
+};
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const encodeUtf8 = (value) => new TextEncoder().encode(String(value ?? ''));
 
 const toBase64 = (bytes) => Buffer.from(bytes).toString('base64');
@@ -157,9 +172,11 @@ const buildSignedWebhookUrl = (webhookUrl, secret, now = Date.now) => {
 };
 
 const sendToDingTalk = async (config, log) => {
-  const { webhookUrl, secret, payload, timeoutMs, now } = config;
+  const { webhookUrl, secret, payload, timeoutMs, now, bindings } = config;
+  assertSupportedTlsConfig(bindings);
   const fullUrl = buildSignedWebhookUrl(webhookUrl, secret, now);
   const bodyString = JSON.stringify(payload);
+  const timeout = makeTimeoutSignal(timeoutMs);
 
   log('request', {
     url: redactWebhookUrl(fullUrl),
@@ -176,7 +193,7 @@ const sendToDingTalk = async (config, log) => {
       method: 'POST',
       headers: JSON_HEADERS,
       body: bodyString,
-      timeoutMs,
+      signal: timeout.signal,
     });
   } catch (err) {
     const reason = err?.cause?.message || err?.message || 'fetch failed';
@@ -186,6 +203,8 @@ const sendToDingTalk = async (config, log) => {
       httpBody: '',
       error: errorWithCode('UNAVAILABLE', reason),
     };
+  } finally {
+    timeout.clear();
   }
 
   const httpStatus = Number(res.status || 0);
@@ -231,6 +250,7 @@ const handleSendTextMessage = async (req, ctx) => {
       secret,
       payload,
       timeoutMs: resolveTimeoutMs(callCtx),
+      bindings: callCtx.bindings,
     },
     log,
   );
@@ -269,6 +289,7 @@ export const handlers = {
 };
 
 rpcdef.__test__ = {
+  assertSupportedTlsConfig,
   buildDingDingPayload,
   buildSignedWebhookUrl,
   coerceString,
@@ -280,6 +301,7 @@ rpcdef.__test__ = {
   hasOwn,
   handleSendTextMessage,
   hmacSha256,
+  makeTimeoutSignal,
   mergedBindings,
   readRepeatedStrings,
   redactWebhookUrl,
@@ -290,6 +312,7 @@ rpcdef.__test__ = {
   resolveTimeoutMs,
   resolveWebhookUrl,
   sendToDingTalk,
+  tlsSkipRequested,
   toBase64,
   toBoolean,
   urlEncode,

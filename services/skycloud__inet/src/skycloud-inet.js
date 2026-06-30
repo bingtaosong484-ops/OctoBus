@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_BATCH_BLOCK_PATH = '/SKYCloud_INET.SKYCloud_INET/BatchBlockIP';
 export const METHOD_BATCH_UNBLOCK_PATH = '/SKYCloud_INET.SKYCloud_INET/BatchUnblockIP';
@@ -102,9 +103,16 @@ const resolveTimeoutMs = (ctx = {}) => firstDefined(
   DEFAULT_TIMEOUT_MS,
 );
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings = {}) => {
   if (!toBoolean(bindings.skipTlsVerify) && !toBoolean(bindings.tlsInsecureSkipVerify) && !toBoolean(bindings.insecureSkipVerify)) return {};
-  return { skipTlsVerify: true, tlsInsecureSkipVerify: true, insecureSkipVerify: true };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const buildHeaders = (ctx = {}, extra = {}) => {
@@ -149,7 +157,7 @@ const httpPostJson = async (ctx, url, body, opts = {}) => {
       method: 'POST',
       headers,
       body: JSON.stringify(body ?? {}),
-      timeoutMs,
+      signal: AbortSignal.timeout(timeoutMs),
       ...buildTlsOptions(ctx.bindings),
     });
   } catch (err) {

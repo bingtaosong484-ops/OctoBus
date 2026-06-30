@@ -110,7 +110,8 @@ test('Login sends text/plain JSON body with defaults', async () => {
 
   assert.equal(captured.url, 'https://203.0.113.10:8443/rest/doc/login');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers['content-type'], 'text/plain;charset=UTF-8');
   assert.equal(captured.init.headers.accept, 'text/plain;charset=UTF-8, application/json;q=0.9, */*;q=0.8');
   assert.deepEqual(JSON.parse(captured.init.body), {
@@ -299,8 +300,12 @@ test('SDK handlers merge config and secret bindings', async () => {
 
   assert.equal(result.http_status, 200);
   assert.equal(captured.url, 'https://198.51.100.10:9443/rest/doc/login');
-  assert.equal(captured.init.timeoutMs, 3100);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.equal(captured.init.headers['X-Custom'], 'value');
   assert.deepEqual(JSON.parse(captured.init.body).userName, 'config_user');
   assert.ok(service);
@@ -341,12 +346,10 @@ test('helper functions keep legacy edge behavior stable', async () => {
   assert.equal(_test.readInteger('', 50, 'limit'), 50);
   assert.equal(_test.readInteger('1.9', 50, 'limit'), 1);
   assert.throws(() => _test.readInteger('bad', 50, 'limit'), /valid integer/);
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
-  assert.deepEqual(_test.buildTlsOptions({}), {});
+  const tlsOptions = await _test.buildTlsOptions({ insecureSkipVerify: true });
+  assert.ok(tlsOptions.dispatcher);
+  assert.equal(Object.hasOwn(tlsOptions, 'insecureSkipVerify'), false);
+  assert.deepEqual(await _test.buildTlsOptions({}), {});
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: -1 }, limits: { timeoutMs: 0 } }), 5000);
   assert.deepEqual(_test.resolveCallContext({ config: { a: 1, password: 'config' }, secret: { b: 2, password: 'secret' }, bindings: { c: 3, password: 'binding' }, request: { x: 1 } }).bindings, { a: 1, b: 2, c: 3, password: 'secret' });
   assert.equal(_test.firstDefined(undefined, null, 'x'), 'x');

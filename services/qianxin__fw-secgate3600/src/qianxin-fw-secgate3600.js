@@ -1,4 +1,5 @@
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const LOGIN_PATH = '/QIANXIN_FW_SecGate3600.QIANXIN_FW_SecGate3600/Login';
 export const UPDATE_PATH = '/QIANXIN_FW_SecGate3600.QIANXIN_FW_SecGate3600/UpdateAddressGroup';
@@ -134,13 +135,16 @@ const toBoolean = (value) => {
   return false;
 };
 
+let insecureTlsDispatcher;
+
+const getInsecureTlsDispatcher = () => {
+  insecureTlsDispatcher ??= new Agent({ connect: { rejectUnauthorized: false } });
+  return insecureTlsDispatcher;
+};
+
 const buildTlsOptions = (bindings) => {
   if (!toBoolean(bindings?.skipTlsVerify) && !toBoolean(bindings?.tlsInsecureSkipVerify) && !toBoolean(bindings?.insecureSkipVerify)) return {};
-  return {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  };
+  return { dispatcher: getInsecureTlsDispatcher() };
 };
 
 const buildHeaders = (ctx, extra = {}) => ({
@@ -210,9 +214,9 @@ const toValue = (val) => {
 const fetchUpstream = async (ctx, url, init = {}) => {
   try {
     const response = await fetch(url, {
-      timeoutMs: resolveTimeoutMs(ctx),
-      ...buildTlsOptions(ctx?.bindings || {}),
       ...init,
+      signal: AbortSignal.timeout(resolveTimeoutMs(ctx)),
+      ...buildTlsOptions(ctx?.bindings || {}),
       headers: buildHeaders(ctx, init.headers || {}),
     });
     const text = await response.text();

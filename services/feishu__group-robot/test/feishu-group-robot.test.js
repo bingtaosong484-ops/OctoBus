@@ -82,7 +82,8 @@ test('SendTextMessage sends correct payload and returns status 200 response', as
 
   assert.equal(captured.url, 'http://localhost:18080/open-apis/bot/v2/hook/test-token');
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
   assert.equal(captured.init.headers['Content-Type'], 'application/json');
   assert.equal(captured.init.headers['User-Agent'], 'chaitin-cosmos');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
@@ -178,9 +179,11 @@ test('message aliases, trimming, custom headers, and TLS flags map correctly', a
   assert.equal(captured.init.headers['X-Custom'], 'value');
   assert.equal(captured.init.headers['x-engine-instance'], 'my-instance');
   assert.equal(captured.init.headers['x-request-id'], 'my-request');
-  assert.equal(captured.init.timeoutMs, 5000);
-  assert.equal(captured.init.skipTlsVerify, true);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
   assert.equal(JSON.parse(captured.init.body).content.text, 'trimmed message');
 });
 
@@ -206,7 +209,8 @@ test('SDK handler merges config and uses request alias', async () => {
 
   assert.equal(res.http_status, 200);
   assert.equal(captured.url, 'https://open.feishu.cn/open-apis/bot/v2/hook/sdk-token');
-  assert.equal(captured.init.timeoutMs, 3100);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
   assert.equal(JSON.parse(captured.init.body).content.text, 'from sdk');
   assert.ok(service);
 });
@@ -229,6 +233,7 @@ test('helper defaults and logger fallback are stable', async () => {
   assert.deepEqual(_test.resolveCallContext({ req: null, request: null }).req, {});
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: -1 }, limits: { timeoutMs: 0 } }), 5000);
   assert.deepEqual(_test.buildTlsOptions({}), {});
+  assert.equal(_test.buildTlsOptions({ skipTlsVerify: true }).dispatcher, _test.insecureTlsDispatcher);
   assert.equal(_test.redactWebhook('https://open.feishu.cn/open-apis/bot/v2/hook/token'), 'https://open.feishu.cn/open-apis/bot/v2/hook/***');
   assert.deepEqual(_test.buildPayload('x'), { msg_type: 'text', content: { text: 'x' } });
   assert.equal(_test.errorWithCode('NOT_REAL', 'unknown').code, grpcStatus.UNKNOWN);

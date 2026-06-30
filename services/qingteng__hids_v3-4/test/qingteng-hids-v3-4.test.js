@@ -128,8 +128,10 @@ test('Login uses bindings credentials and returns http_status/raw_body', async (
   assert.equal(captured.url, 'https://qt.example.com/v1/api/auth');
   assert.deepEqual(JSON.parse(captured.init.body), { username: 'qt-user', password: 'qt-pass' });
   assert.equal(captured.init.method, 'POST');
-  assert.equal(captured.init.timeoutMs, 3000);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('skipTlsVerify' in captured.init, false);
   assert.equal(captured.init.headers['Content-Type'], 'application/json');
   assert.equal(captured.init.headers['X-Custom'], 'demo');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst-a');
@@ -323,11 +325,7 @@ test('helper functions cover edge cases and aliases', () => {
   assert.equal(_test.optionalUint32(), undefined);
   assert.equal(_test.resolveTimeoutMs({ bindings: {}, limits: { timeoutMs: -1 } }), 5000);
   assert.equal(_test.resolveTimeoutMs({ bindings: { timeoutMs: 222 }, limits: { timeoutMs: 111 } }), 111);
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: true }), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ insecureSkipVerify: true }).dispatcher);
   assert.deepEqual(_test.buildTlsOptions({}), {});
   assert.equal(_test.buildSortedQuery({ z: 'last', a: 'first', empty: '' }), 'a=first&z=last');
   assert.equal(_test.buildSortedQuery({ q: 'a b' }), 'q=a+b');

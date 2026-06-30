@@ -9,6 +9,7 @@ export const MAX_TOTAL_ADDRESSES = 1000;
 export const IPV4_SUFFIX = '/32';
 export const IPV6_SUFFIX = '/64';
 export const CONTENT_TYPE = 'application/yang-data+xml';
+let insecureDispatcherPromise;
 
 const grpcCodeFor = (code) => ({
   FAILED_PRECONDITION: grpcStatus.FAILED_PRECONDITION,
@@ -225,6 +226,43 @@ const shouldSkipTlsVerify = (ctx) => {
     toBoolean(bindings.insecureSkipVerify);
 };
 
+const createTlsDispatcher = async (skipTlsVerify) => {
+  if (!skipTlsVerify) return undefined;
+  insecureDispatcherPromise ??= import('undici').then(({ Agent }) => new Agent({
+    connect: { rejectUnauthorized: false },
+  }));
+  return insecureDispatcherPromise;
+};
+
+const fetchWithTimeout = async (url, init = {}, options = {}) => {
+  const rawTimeout = Number(options.timeoutMs);
+  const timeoutMs = Number.isFinite(rawTimeout) && rawTimeout > 0 ? rawTimeout : DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const parentSignal = init.signal;
+  const abortFromParent = () => controller.abort(parentSignal.reason);
+  if (parentSignal) {
+    if (parentSignal.aborted) {
+      controller.abort(parentSignal.reason);
+    } else if (typeof parentSignal.addEventListener === 'function') {
+      parentSignal.addEventListener('abort', abortFromParent, { once: true });
+    }
+  }
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const dispatcher = await createTlsDispatcher(options.skipTlsVerify);
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal,
+      ...(dispatcher ? { dispatcher } : {}),
+    });
+  } finally {
+    clearTimeout(timer);
+    if (parentSignal && typeof parentSignal.removeEventListener === 'function') {
+      parentSignal.removeEventListener('abort', abortFromParent);
+    }
+  }
+};
+
 const logFlow = (ctx, action, details) => {
   const meta = ctx?.meta || {};
   const tags = [];
@@ -319,21 +357,13 @@ const handleUpdateAddressGroup = async (req, ctx = {}) => {
     method: 'PUT',
     headers: fetchHeaders,
     body: fetchBody,
-    timeoutMs,
-    ...(skipTlsVerify
-      ? {
-          insecureSkipVerify: true,
-          skipTlsVerify: true,
-          tlsInsecureSkipVerify: true,
-        }
-      : {}),
   };
 
   logFlow(callCtx, 'UpdateAddressGroup:start', { url: requestModel.request_url });
 
   let response;
   try {
-    response = await fetch(requestModel.request_url, fetchOptions);
+    response = await fetchWithTimeout(requestModel.request_url, fetchOptions, { timeoutMs, skipTlsVerify });
   } catch (error) {
     const reason = error?.cause?.message || error?.message || 'fetch failed';
     throw errorWithCode('UNAVAILABLE', 'upstream request failed', buildErrorDetails(requestModel, 0, '', reason));
@@ -378,8 +408,10 @@ export const _test = {
   buildRequestUrl,
   buildResponse,
   buildXmlBody,
+  createTlsDispatcher,
   errorWithCode,
   escapeXml,
+  fetchWithTimeout,
   getStringList,
   isIPv4,
   isIPv6,

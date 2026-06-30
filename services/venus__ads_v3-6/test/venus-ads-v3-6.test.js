@@ -136,7 +136,9 @@ test('BatchBlockIP sends expected payload, headers, token, and TLS options', asy
   assert.equal(res.requested_ip_count, 2);
   assert.equal(calls[0].body.customize_time_out, 90);
   assert.equal(calls[0].init.headers['x-env'], 'test');
-  assert.equal(calls[0].init.tlsInsecureSkipVerify, true);
+  assert.ok(calls[0].init.signal instanceof AbortSignal);
+  assert.equal(calls[0].init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(calls[0].init.tlsInsecureSkipVerify, undefined);
   assert.equal(calls[1].init.headers.Authorization, 'Bearer tok');
   assert.equal(calls[1].body.listtype, '200');
   assert.deepEqual(calls[1].body.ipadd, ['1.1.1.1', '2.2.2.2']);

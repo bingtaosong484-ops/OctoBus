@@ -117,7 +117,9 @@ test('Login uses ctx.secret password, ignores request password, and sanitizes re
   assert.equal(captured.url, 'https://topsec5u.example.com:443/home/login/');
   assert.equal(captured.form.name, 'admin');
   assert.equal(decryptQuotedCipher(captured.form.password), PASSWORD);
-  assert.equal(captured.init.tlsInsecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
   assert.equal(captured.init.headers['x-env'], 'test');
   assert.deepEqual(res, { success: true, message: 'login success', http_status: 200 });
   assert.equal(Object.hasOwn(res, 'session'), false);

@@ -88,7 +88,8 @@ test('GetPacketFilterStatus sends fixed query and basic auth', async () => {
 
   assert.equal(captured.url, 'http://device.example:9090/func/web_main/api/system/sysinfolist/pfInEfList?ipVersion=4');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 10_000);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.accept, 'application/json');
   assert.equal(captured.init.headers.authorization, `Basic ${NativeBuffer.from('dptech_user:dptech_password').toString('base64')}`);
   assert.equal(result.http_status, 200);
@@ -126,7 +127,7 @@ test('basic auth fallback handles utf8 without Buffer or TextEncoder', () => {
   assert.deepEqual(_test.utf8Bytes('a'), [0x61]);
 });
 
-test('host, user, password, timeout, TLS, and header resolution cover aliases', () => {
+test('host, user, password, timeout, TLS, and header resolution cover aliases', async () => {
   const ctx = buildCtx({
     bindings: {
       host: '',
@@ -147,11 +148,9 @@ test('host, user, password, timeout, TLS, and header resolution cover aliases', 
   assert.equal(_test.resolvePassword(ctx.bindings), 'binding-pass');
   assert.equal(_test.pickString({ user: '', username: { value: 'second' } }, ['user', 'username']), 'second');
   assert.equal(_test.resolveTimeoutMs(ctx), 3000);
-  assert.deepEqual(_test.buildTlsOptions(ctx.bindings), {
-    skipTlsVerify: true,
-    tlsInsecureSkipVerify: true,
-    insecureSkipVerify: true,
-  });
+  const tlsOptions = await _test.buildTlsOptions(ctx.bindings);
+  assert.ok(tlsOptions.dispatcher);
+  assert.equal(Object.hasOwn(tlsOptions, 'skipTlsVerify'), false);
   assert.equal(_test.buildHeaders(ctx.bindings, { accept: 'text/plain' }).accept, 'text/plain');
   assert.equal(_test.buildHeaders(ctx.bindings)['x-extra'], '1');
   assert.equal(_test.buildUrl('https://fw.example/', '/path', { a: 'b c', empty: '', n: 1 }), 'https://fw.example/path?a=b%20c&n=1');
@@ -409,10 +408,14 @@ test('SDK handlers merge config and secret fields', async () => {
   });
 
   assert.equal(captured.url, 'https://fw.example.local/func/web_main/api/system/sysinfolist/pfInEfList?ipVersion=4');
-  assert.equal(captured.init.timeoutMs, 3100);
+  assert.equal(Object.hasOwn(captured.init, 'timeoutMs'), false);
+  assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.headers.authorization, `Basic ${NativeBuffer.from('secret_user:secret_password').toString('base64')}`);
   assert.equal(captured.init.headers['x-trace'], 'abc');
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.equal(Object.hasOwn(captured.init, 'skipTlsVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'tlsInsecureSkipVerify'), false);
+  assert.equal(Object.hasOwn(captured.init, 'insecureSkipVerify'), false);
+  assert.ok(captured.init.dispatcher);
   assert.equal(result.enable, 'false');
 });
 

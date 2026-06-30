@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { GrpcError, grpcStatus } from '@chaitin-ai/octobus-sdk';
+import { Agent } from 'undici';
 
 export const METHOD_BLOCK_DOMAIN_PATH = '/ThreatBook_TDP.ThreatBook_TDP/BlockDomain';
 export const METHOD_UNBLOCK_DOMAIN_PATH = '/ThreatBook_TDP.ThreatBook_TDP/UnblockDomain';
@@ -119,6 +120,16 @@ const resolveTimeoutMs = (ctx = {}) => {
   return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_TIMEOUT_MS;
 };
 
+const insecureTlsDispatcher = new Agent({ connect: { rejectUnauthorized: false } });
+
+const buildTlsOptions = (bindings = {}) => (bindings.skipTlsVerify ? { dispatcher: insecureTlsDispatcher } : {});
+
+const makeTimeoutSignal = (timeoutMs) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  return { signal: controller.signal, clear: () => clearTimeout(timeoutId) };
+};
+
 const computeTimestampSeconds = () => Math.floor(Date.now() / 1000);
 
 const generateHmacSha256Signature = (apiKey, secret, timestamp) => crypto
@@ -216,7 +227,7 @@ const operateDomain = async (req = {}, ctx = {}, actionLabel, operationType) => 
     'Content-Type': 'application/json;charset=UTF-8',
     ...runtime.bindings.headers,
   };
-  const tlsOptions = runtime.bindings.skipTlsVerify ? { insecureSkipVerify: true, tlsInsecureSkipVerify: true, skipTlsVerify: true } : {};
+  const timeout = makeTimeoutSignal(runtime.timeoutMs);
 
   let res;
   try {
@@ -224,8 +235,8 @@ const operateDomain = async (req = {}, ctx = {}, actionLabel, operationType) => 
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
-      timeoutMs: runtime.timeoutMs,
-      ...tlsOptions,
+      signal: timeout.signal,
+      ...buildTlsOptions(runtime.bindings),
     });
   } catch (err) {
     const reason = err?.cause?.message || err?.message || 'fetch failed';
@@ -237,6 +248,8 @@ const operateDomain = async (req = {}, ctx = {}, actionLabel, operationType) => 
       reason,
     });
     throw errorWithCode('UNAVAILABLE', reason);
+  } finally {
+    timeout.clear();
   }
 
   let text;
@@ -282,6 +295,7 @@ export const _test = {
   blockDomain,
   buildLogPrefix,
   buildOperateUrl,
+  buildTlsOptions,
   computeTimestampSeconds,
   errorWithCode,
   extractList,
@@ -289,7 +303,9 @@ export const _test = {
   generateHmacSha256Signature,
   grpcCodeFor,
   hasOwn,
+  insecureTlsDispatcher,
   logFlow,
+  makeTimeoutSignal,
   mapHttpError,
   mergedBindings,
   normalizeBaseUrl,

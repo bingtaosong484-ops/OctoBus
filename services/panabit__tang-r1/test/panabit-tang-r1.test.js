@@ -127,8 +127,10 @@ test('Login sends GET request, headers, timeout, TLS flags, and caches token', a
   assert.equal(url.searchParams.get('username'), 'api_user');
   assert.equal(url.searchParams.get('password'), 'StrongPass!');
   assert.equal(captured.init.method, 'GET');
-  assert.equal(captured.init.timeoutMs, 1500);
-  assert.equal(captured.init.insecureSkipVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
+  assert.ok(captured.init.dispatcher);
+  assert.equal('insecureSkipVerify' in captured.init, false);
   assert.equal(captured.init.headers['X-Extra'], 'demo');
   assert.ok(captured.init.headers['x-engine-instance'].startsWith('inst-'));
   assert.equal(captured.init.headers['x-request-id'], 'req');
@@ -288,7 +290,8 @@ test('config and secret aliases supply base URL, credentials, timeout, and heade
 
   assert.equal(result.api_token, '');
   assert.equal(captured.url, 'http://config.example/api/panabit.cgi/API?api_action=api_login&username=secret-user&password=secret-pass');
-  assert.equal(captured.init.timeoutMs, 2500);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal('timeoutMs' in captured.init, false);
   assert.equal(captured.init.headers['X-Config'], 'yes');
   assert.equal(captured.init.headers['x-engine-instance'], 'camel-inst');
   assert.equal(captured.init.headers['x-request-id'], 'camel-req');
@@ -309,11 +312,7 @@ test('helpers cover URL, scalar, multipart, IP, response, and fallback branches'
   assert.equal(_test.toBoolean('off'), false);
   assert.equal(_test.toBoolean('maybe'), false);
   assert.deepEqual(_test.buildTlsOptions({}), {});
-  assert.deepEqual(_test.buildTlsOptions({ insecureSkipVerify: 'yes' }), {
-    insecureSkipVerify: true,
-    tlsInsecureSkipVerify: true,
-    skipTlsVerify: true,
-  });
+  assert.ok(_test.buildTlsOptions({ insecureSkipVerify: 'yes' }).dispatcher);
   assert.deepEqual(_test.buildHeaders({ bindings: {}, meta: {} }), {
     'x-engine-instance': 'unknown',
     'x-request-id': 'unknown',

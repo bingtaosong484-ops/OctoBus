@@ -120,8 +120,10 @@ test('BatchBlockIP success maps payload, headers, TLS, and signature', async () 
   assert.equal(url.searchParams.get('apikey'), 'demoKey');
   assert.equal(url.searchParams.get('timestamp'), String(timestamp));
   assert.equal(url.searchParams.get('sign'), expectedSign);
-  assert.equal(captured.init.timeoutMs, 5000);
-  assert.equal(captured.init.skipTlsVerify, true);
+  assert.ok(captured.init.signal instanceof AbortSignal);
+  assert.equal(captured.init.timeoutMs, undefined);
+  assert.equal(captured.init.dispatcher, _test.insecureTlsDispatcher);
+  assert.equal(captured.init.skipTlsVerify, undefined);
   assert.equal(captured.init.headers['X-Product'], 'miner');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst');
   assert.deepEqual(captured.body, {
