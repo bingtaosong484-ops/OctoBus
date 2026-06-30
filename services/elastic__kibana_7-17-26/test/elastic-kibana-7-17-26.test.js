@@ -96,14 +96,14 @@ test('CheckStatus calls /api/status with basic auth', async () => {
   assert.equal(captured.init.headers['X-Test'], '1');
   assert.equal(captured.init.headers.Authorization, `Basic ${Buffer.from('elastic:secret').toString('base64')}`);
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /7.17.26/);
+  assert.equal(result.http_body, '');
 });
 
 test('handlers accept SDK runtime context shape', async () => {
   setFetch(async () => response(200, { ok: true }));
   const result = await handlers[METHOD_CHECK_STATUS_FULL](buildCtx());
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /"ok":true/);
+  assert.equal(result.http_body, '');
 });
 
 test('CallKibanaAPI supports generic GET query and response headers', async () => {
@@ -131,7 +131,7 @@ test('CallKibanaAPI supports generic GET query and response headers', async () =
   assert.equal(captured.init.headers['X-Trace'], 'octobus');
   assert.equal(captured.init.body, undefined);
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /"ok":true/);
+  assert.equal(result.http_body, '');
   assert.deepEqual(JSON.parse(result.response_headers_json), { 'content-type': 'application/json' });
 });
 
@@ -300,7 +300,8 @@ test('maps HTTP and network failures with response details', async () => {
       legacyCode,
       (err) => {
         assert.equal(err.response.http_status, status);
-        assert.match(err.response.http_body, new RegExp(`status ${status}`));
+        assert.equal(err.response.http_body, '');
+        assert.ok(err.response.http_body_length > 0);
       },
     );
   }
@@ -313,7 +314,8 @@ test('maps HTTP and network failures with response details', async () => {
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
-      assert.match(err.response.http_body, /connection refused/);
+      assert.equal(err.response.http_body, '');
+      assert.ok(err.response.http_body_length > 0);
     },
   );
 
@@ -328,7 +330,8 @@ test('maps HTTP and network failures with response details', async () => {
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
-      assert.match(err.response.http_body, /read failed/);
+      assert.equal(err.response.http_body, '');
+      assert.ok(err.response.http_body_length > 0);
     },
   );
 });

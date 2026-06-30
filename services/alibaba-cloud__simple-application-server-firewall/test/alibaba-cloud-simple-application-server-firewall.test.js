@@ -119,7 +119,7 @@ test('normalizes listed firewall rules from mixed SDK field names', () => {
   assert.equal(rule.rule_protocol, 'TCP');
   assert.equal(rule.source_cidr_ip, '203.0.113.10/32');
   assert.deepEqual(rule.tags, [{ key: 'env', value: 'test' }]);
-  assert.equal(rule.raw_json.structValue.fields.FirewallRuleId.stringValue, 'rule-1');
+  assert.equal(rule.raw_json, undefined);
 });
 
 test('CreateFirewallRule maps request through batch create API with source CIDR', async () => {

@@ -248,10 +248,11 @@ const handleHttpResponse = (httpStatus, httpBody, ctx, action) => {
     return { response_code: parsed.responseCode, verbose_msg: parsed.verboseMsg, data: parsed.data };
   }
   const code = mapHttpStatusToCode(httpStatus);
-  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}: ${httpBody}`), {
+  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}`), {
     response_code: 0,
     verbose_msg: `upstream http ${httpStatus}`,
     data: '',
+    http_body_length: String(httpBody ?? '').length,
   });
 };
 

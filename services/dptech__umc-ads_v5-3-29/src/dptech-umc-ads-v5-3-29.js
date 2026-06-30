@@ -244,10 +244,10 @@ const fetchText = async (ctx, url, init = {}) => {
 const toResponse = (upstream) => {
   const response = {
     http_status: toInteger(upstream?.status, 0),
-    raw_body: String(upstream?.text ?? ''),
+    raw_body: '',
   };
   if (upstream?.json !== undefined) {
-    response.raw_json = toValue(upstream.json);
+    response.raw_json = undefined;
   }
   return response;
 };

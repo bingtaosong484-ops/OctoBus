@@ -103,7 +103,7 @@ test('CheckOnline builds authorization header without Basic prefix', async () =>
   assert.equal(result.success, true);
   assert.equal(result.status, 1);
   assert.equal(result.msg, 'Online');
-  assert.equal(result.raw_json.structValue.fields.status.numberValue, 1);
+  assert.equal(result.raw_json, undefined);
   assert.match(JSON.stringify(logs), /CheckOnline/);
 });
 
@@ -114,7 +114,8 @@ test('CheckOnline maps business failure and response shape errors', async () => 
   assert.equal(offline.payload.code, 'FAILED_PRECONDITION');
   assert.equal(offline.payload.http_status, 200);
   assert.equal(offline.payload.reason, 'status_not_one');
-  assert.equal(offline.payload.raw_json.status, 0);
+  assert.equal(offline.payload.raw_json, undefined);
+  assert.ok(offline.payload.raw_body_length > 0);
 
   globalThis.fetch = async () => okResponse(JSON.stringify([1]));
   const mismatch = await parseErrorPayload(() => rpcdef(buildCtx())[CHECK_ONLINE_PATH]());
@@ -176,7 +177,7 @@ test('ListIPListMembers parses array response into members', async () => {
   assert.equal(result.members[0].member_id, 1024);
   assert.equal(result.members[0].ip, '203.0.113.45');
   assert.equal(result.members[1].trigger_policy, 'policy-a');
-  assert.equal(result.raw_json.listValue.values[1].structValue.fields.triggerPolicy.stringValue, 'policy-a');
+  assert.equal(result.raw_json, undefined);
 });
 
 test('ListIPListMembers rejects invalid member and non-array responses', async () => {
@@ -219,7 +220,8 @@ test('UnblockIP rejects invalid member_id and affected != 1', async () => {
   const failed = await parseErrorPayload(() => rpcdef(buildCtx({ req: { book_name: 'block-book', member_id: 1024 } }))[UNBLOCK_IP_PATH]());
   assert.equal(failed.payload.code, 'FAILED_PRECONDITION');
   assert.equal(failed.payload.reason, 'affected_not_one');
-  assert.equal(failed.payload.raw_json.affected, 0);
+  assert.equal(failed.payload.raw_json, undefined);
+  assert.ok(failed.payload.raw_body_length > 0);
 });
 
 test('HTTP and network failures preserve legacy JSON details', async () => {
@@ -254,7 +256,8 @@ test('Non-JSON success response is UNKNOWN with raw_body preserved', async () =>
   const { payload } = await parseErrorPayload(() => rpcdef(buildCtx())[CHECK_ONLINE_PATH]());
   assert.equal(payload.code, 'UNKNOWN');
   assert.equal(payload.reason, 'invalid_json');
-  assert.equal(payload.raw_body, 'not-json');
+  assert.equal(payload.raw_body, '');
+  assert.equal(payload.raw_body_length, 'not-json'.length);
 });
 
 test('SDK handlers merge config and secret and expose all methods', async () => {
@@ -355,8 +358,8 @@ test('helper functions keep edge behavior stable', async () => {
   assert.deepEqual(_test.toValue(Number.NaN), { stringValue: 'NaN' });
   assert.deepEqual(_test.toValue(Symbol('x')), { stringValue: 'Symbol(x)' });
   assert.deepEqual(_test.toValue({ a: true }).structValue.fields.a, { boolValue: true });
-  assert.deepEqual(_test.toOnlineResponse(200, '{}', { status: 1, msg: 'ok' }).raw_json.structValue.fields.status, { numberValue: 1 });
-  assert.deepEqual(_test.toMutationResponse(200, '{}', { affected: 1 }).raw_json.structValue.fields.affected, { numberValue: 1 });
+  assert.equal(_test.toOnlineResponse(200, '{}', { status: 1, msg: 'ok' }).raw_json, undefined);
+  assert.equal(_test.toMutationResponse(200, '{}', { affected: 1 }).raw_json, undefined);
   assert.deepEqual(_test.mapMember({ id: '1', iPv4IPv6: '203.0.113.1' }, 200, '{}'), {
     member_id: 1,
     type: 0,

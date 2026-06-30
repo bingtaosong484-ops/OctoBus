@@ -29,11 +29,13 @@ const errorWithCode = (code, message) => {
 };
 
 const upstreamError = (code, message, details = {}) => {
+  const rawBody = typeof details.rawBody === 'string' ? details.rawBody : '';
   const payload = {
     code,
     message,
     http_status: Number.isFinite(Number(details.httpStatus)) ? Number(details.httpStatus) : 0,
-    raw_body: typeof details.rawBody === 'string' ? details.rawBody : '',
+    raw_body: '',
+    raw_body_length: rawBody.length,
     reason: String(details.reason || '').trim(),
   };
   const err = new GrpcError(grpcCodeFor(code), JSON.stringify(payload));
@@ -321,7 +323,6 @@ const handleQueryBlacklist = async (req, ctx) => {
   let rawJson;
 
   if (parsed.ok && parsed.json !== undefined) {
-    rawJson = toValue(parsed.json);
     msg = typeof parsed.json?.msg === 'string' ? parsed.json.msg : '';
     if (Array.isArray(parsed.json?.vals)) {
       vals = parsed.json.vals.map((item) => ({
@@ -336,8 +337,8 @@ const handleQueryBlacklist = async (req, ctx) => {
 
   return {
     http_status: status,
-    raw_body: String(text ?? ''),
-    raw_json: rawJson,
+    raw_body: '',
+    raw_json: undefined,
     vals,
     msg,
   };
@@ -372,7 +373,7 @@ const buildAddBlacklistPayload = (req) => {
 const parseBusinessResponse = (status, text, expectedSuccessMsg = 'success') => {
   const rawBody = String(text ?? '');
   if (!rawBody.trim()) {
-    return { http_status: status, raw_body: rawBody, raw_json: undefined, msg: '' };
+    return { http_status: status, raw_body: '', raw_json: undefined, msg: '' };
   }
 
   const parsed = parseJsonIfPossible(rawBody);
@@ -385,7 +386,6 @@ const parseBusinessResponse = (status, text, expectedSuccessMsg = 'success') => 
   }
 
   const msg = typeof parsed.json?.msg === 'string' ? parsed.json.msg : '';
-  const rawJson = toValue(parsed.json);
   if (msg !== expectedSuccessMsg) {
     throw upstreamError('FAILED_PRECONDITION', 'upstream business failure', {
       httpStatus: status,
@@ -396,8 +396,8 @@ const parseBusinessResponse = (status, text, expectedSuccessMsg = 'success') => 
 
   return {
     http_status: status,
-    raw_body: rawBody,
-    raw_json: rawJson,
+    raw_body: '',
+    raw_json: undefined,
     msg,
   };
 };

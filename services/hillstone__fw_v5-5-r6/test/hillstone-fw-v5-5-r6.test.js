@@ -257,7 +257,7 @@ test('CreateAddrGroup sends encoded cookies and normalized address groups', asyn
     },
   ]);
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /"success":true/);
+  assert.equal(result.http_body, '');
 });
 
 test('CreateAddrGroup returns FAILED_PRECONDITION on 401', async () => {

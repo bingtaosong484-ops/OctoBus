@@ -261,13 +261,14 @@ const handleSendTextMessage = async (req, ctx) => {
     const errorMessage = result.error?.message || `HTTP ${result.httpStatus}`;
     const err = errorWithCode(errorCode, errorMessage);
     err.httpStatus = result.httpStatus;
-    err.httpBody = result.httpBody;
+    err.httpBody = '';
+    err.httpBodyLength = String(result.httpBody ?? '').length;
     throw err;
   }
 
   return {
     http_status: result.httpStatus,
-    http_body: result.httpBody,
+    http_body: '',
   };
 };
 

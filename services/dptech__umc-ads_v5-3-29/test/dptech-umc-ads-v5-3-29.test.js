@@ -235,10 +235,10 @@ test('HTTP 500 JSON and non-JSON responses are preserved as OK payloads', async 
   const queryRes = await rpcdef(buildCtx({ instanceId }))[QUERY_BLACKLIST_PATH]();
 
   assert.equal(addRes.http_status, 500);
-  assert.equal(addRes.raw_body, JSON.stringify({ code: 7, message: 'duplicate' }));
-  assert.equal(addRes.raw_json.structValue.fields.code.numberValue, 7);
+  assert.equal(addRes.raw_body, '');
+  assert.equal(addRes.raw_json, undefined);
   assert.equal(queryRes.http_status, 404);
-  assert.equal(queryRes.raw_body, '<html>not found</html>');
+  assert.equal(queryRes.raw_body, '');
   assert.equal(queryRes.raw_json, undefined);
 });
 

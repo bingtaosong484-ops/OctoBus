@@ -87,7 +87,8 @@ const expectRejectPayload = async (fn, code, httpStatus, reasonPattern) => {
     const payload = JSON.parse(err.message);
     assert.equal(payload.code, code);
     assert.equal(payload.http_status, httpStatus);
-    assert.equal(typeof payload.raw_body, 'string');
+    assert.equal(payload.raw_body, '');
+    assert.ok(payload.raw_body_length >= 0);
     if (reasonPattern) assert.match(payload.reason, reasonPattern);
   });
 };
@@ -136,7 +137,7 @@ test('Login uses bindings credentials and returns http_status/raw_body', async (
   assert.equal(captured.init.headers['X-Custom'], 'demo');
   assert.equal(captured.init.headers['x-engine-instance'], 'inst-a');
   assert.equal(res.http_status, 200);
-  assert.match(res.raw_body, /com-1/);
+  assert.equal(res.raw_body, '');
 });
 
 test('input and binding helpers validate required fields', async () => {
@@ -197,7 +198,7 @@ test('QueryHostAssets auto logins and signs sorted query payload', async () => {
   const expected = crypto.createHash('sha1').update('com-1ip10.0.0.11710000000sign-1').digest('hex');
   assert.equal(calls[1].init.headers.sign, expected);
   assert.equal(res.http_status, 200);
-  assert.match(res.raw_body, /agent-1/);
+  assert.equal(res.raw_body, '');
 });
 
 test('CreateHostIsolation and DeleteHostIsolation send expected signed bodies', async () => {
@@ -246,7 +247,7 @@ test('DeleteHostIsolation retries once after 401 by re-login', async () => {
   const res = await callHandler(METHOD_DELETE_HOST_ISOLATION_FULL, { agent_ids: ['agent-a'] }, buildCtx());
   assert.equal(loginCount, 2);
   assert.equal(res.http_status, 200);
-  assert.match(res.raw_body, /removed/);
+  assert.equal(res.raw_body, '');
   assert.equal(_test.getCachedSessionCount(), 1);
 });
 
@@ -367,15 +368,15 @@ test('mock upstream handles signed query and isolation lifecycle', async () => {
 
     const query = await callHandler(METHOD_QUERY_HOST_ASSETS_FULL, { ip: '192.0.2.10', system_type: 'linux' }, ctx);
     assert.equal(query.http_status, 200);
-    assert.match(query.raw_body, /linux-192.0.2.10/);
+    assert.equal(query.raw_body, '');
 
     const create = await callHandler(METHOD_CREATE_HOST_ISOLATION_FULL, { agent_ids: ['agent-1'], remark: 'manual' }, ctx);
     assert.equal(create.http_status, 200);
-    assert.match(create.raw_body, /manual/);
+    assert.equal(create.raw_body, '');
 
     const del = await callHandler(METHOD_DELETE_HOST_ISOLATION_FULL, { agent_ids: ['agent-1'] }, ctx);
     assert.equal(del.http_status, 200);
-    assert.match(del.raw_body, /removed/);
+    assert.equal(del.raw_body, '');
 
     const bad = await fetch(`${server.url}${UPSTREAM_QUERY_HOST_ASSETS_PATH}/linux?ip=1.1.1.1`).then((res) => res.json());
     assert.equal(bad.message, 'missing bearer token');

@@ -150,15 +150,16 @@ const sendToSlack = async (ctx, webhook, payload, log) => {
   });
 
   if (httpStatus !== 200) {
-    const err = errorWithCode('UNAVAILABLE', `upstream http ${httpStatus}: ${httpBody}`);
+    const err = errorWithCode('UNAVAILABLE', `upstream http ${httpStatus}`);
     err.httpStatus = httpStatus;
-    err.httpBody = httpBody;
+    err.httpBody = '';
+    err.httpBodyLength = httpBody.length;
     throw err;
   }
 
   return {
     http_status: httpStatus,
-    http_body: httpBody,
+    http_body: '',
   };
 };
 

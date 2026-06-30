@@ -111,7 +111,8 @@ const parseResponseBody = (input) => {
   } catch {
     throw errorWithCode('UNKNOWN', 'response is not valid JSON', {
       status_code: input?.statusCode,
-      raw_body: text,
+      raw_body: '',
+      raw_body_length: text.length,
     });
   }
 };
@@ -133,16 +134,17 @@ const buildResponse = (input) => ({
   success: true,
   status_code: input.statusCode,
   message: input.message,
-  raw_body: input.rawBody,
-  raw_json: input.rawJSON,
+  raw_body: '',
+  raw_json: undefined,
   idempotent_success: Boolean(input.idempotentSuccess),
 });
 
 const buildErrorDetails = (input) => ({
   success: false,
   status_code: input.statusCode,
-  raw_body: input.rawBody,
-  raw_json: input.rawJSON,
+  raw_body: '',
+  raw_body_length: String(input.rawBody ?? '').length,
+  raw_json: undefined,
   idempotent_success: Boolean(input.idempotentSuccess),
 });
 

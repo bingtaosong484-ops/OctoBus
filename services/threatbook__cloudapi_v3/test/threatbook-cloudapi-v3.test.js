@@ -147,8 +147,8 @@ test('IpReputation sends default query and returns raw body and raw json', async
   assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
   assert.equal(captured.init.insecureSkipVerify, undefined);
   assert.equal(result.http_status, 200);
-  assert.match(result.raw_body, /"response_code":0/);
-  assert.deepEqual(result.raw_json.structValue.fields.data.structValue.fields.risk, { stringValue: 'low' });
+  assert.equal(result.raw_body, '');
+  assert.equal(result.raw_json, undefined);
 });
 
 test('DomainQuery sends default exclude and supports aliases', async () => {
@@ -176,7 +176,7 @@ test('DomainQuery sends default exclude and supports aliases', async () => {
   assert.equal(url.searchParams.get('exclude'), 'cas');
   assert.ok(captured.init.signal instanceof AbortSignal);
   assert.equal(captured.init.timeoutMs, undefined);
-  assert.deepEqual(result.raw_json.structValue.fields.data.structValue.fields.kind, { stringValue: 'domain_query' });
+  assert.equal(result.raw_json, undefined);
 });
 
 test('DomainQuery sends explicit exclude from scalar wrapper', async () => {
@@ -205,7 +205,8 @@ test('maps HTTP, business, JSON, and response_code failures to structured errors
       const payload = parseStructuredError(err);
       assert.equal(payload.http_status, 401);
       assert.equal(payload.reason, 'upstream http 401');
-      assert.equal(payload.raw_json.response_code, 1101);
+      assert.equal(payload.raw_json, undefined);
+      assert.ok(payload.raw_body_length > 0);
     },
   );
 
@@ -285,7 +286,7 @@ test('maps network and response read errors', async () => {
 test('rpcdef falls back to context request when call request is omitted', async () => {
   setFetch(async () => response(200, { response_code: 0, verbose_msg: 'OK', data: { resource: '1.1.1.1' } }));
   const result = await rpcdef(buildCtx({ req: { resource: '1.1.1.1' } }))[METHOD_IP_REPUTATION_PATH]();
-  assert.deepEqual(result.raw_json.structValue.fields.data.structValue.fields.resource, { stringValue: '1.1.1.1' });
+  assert.equal(result.raw_json, undefined);
 });
 
 test('helper functions cover normalization branches', () => {
@@ -339,9 +340,7 @@ test('helper functions cover normalization branches', () => {
   assert.deepEqual(_test.parseThreatBookResponse({
     httpStatus: 200,
     rawBody: '{"response_code":0,"data":[null]}',
-  }).raw_json.structValue.fields.data, {
-    listValue: { values: [{ nullValue: 'NULL_VALUE' }] },
-  });
+  }).raw_json, undefined);
 });
 
 test('throwStructuredError includes optional fields', () => {
@@ -357,7 +356,8 @@ test('throwStructuredError includes optional fields', () => {
     (err) => {
       assert.ok(err instanceof GrpcError);
       const payload = parseStructuredError(err);
-      assert.equal(payload.raw_json.response_code, 1);
+      assert.equal(payload.raw_json, undefined);
+      assert.ok(payload.raw_body_length > 0);
       assert.equal(payload.response_code, 1);
       assert.equal(payload.verbose_msg, 'bad');
       assert.equal(payload.reason, 'why');
@@ -386,8 +386,8 @@ test('mock upstream handles success and simulated failures', async () => {
     const ctx = buildCtx({ config: { threatbook_domain: server.url } });
     const ip = await callHandler(METHOD_IP_REPUTATION_FULL, { resource: '8.8.8.8' }, ctx);
     const domain = await callHandler(METHOD_DOMAIN_QUERY_FULL, { resource: 'example.com' }, ctx);
-    assert.deepEqual(ip.raw_json.structValue.fields.data.structValue.fields.kind, { stringValue: 'ip_reputation' });
-    assert.deepEqual(domain.raw_json.structValue.fields.data.structValue.fields.exclude, { stringValue: 'cas' });
+    assert.equal(ip.raw_json, undefined);
+    assert.equal(domain.raw_json, undefined);
 
     await expectGrpcError(() => callHandler(METHOD_IP_REPUTATION_FULL, { resource: 'bizfail.example' }, ctx), 'FAILED_PRECONDITION');
     await expectGrpcError(() => callHandler(METHOD_IP_REPUTATION_FULL, { resource: 'http401.example' }, ctx), 'PERMISSION_DENIED');

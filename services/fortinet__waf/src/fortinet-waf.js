@@ -279,10 +279,12 @@ const classifyHttpStatus = (status) => {
 };
 
 const failWithResponse = (code, message, status, rawBody, rawJSON, reason) => {
+  const bodyText = String(rawBody ?? '');
   throw errorWithCode(code, message, {
     http_status: status,
-    raw_body: rawBody,
-    raw_json: rawJSON,
+    raw_body: '',
+    raw_body_length: bodyText.length,
+    raw_json: undefined,
     reason,
   });
 };
@@ -340,8 +342,8 @@ const toOnlineResponse = (statusCode, rawBody, rawJSON) => ({
   status: toInt(rawJSON?.status, 0),
   msg: trimString(rawJSON?.msg),
   version: trimString(rawJSON?.version),
-  raw_body: rawBody,
-  raw_json: toValue(rawJSON),
+  raw_body: '',
+  raw_json: undefined,
 });
 
 const toMutationResponse = (statusCode, rawBody, rawJSON) => ({
@@ -350,8 +352,8 @@ const toMutationResponse = (statusCode, rawBody, rawJSON) => ({
   status: toInt(rawJSON?.status, 0),
   affected: toInt(rawJSON?.affected, 0),
   msg: trimString(rawJSON?.msg),
-  raw_body: rawBody,
-  raw_json: toValue(rawJSON),
+  raw_body: '',
+  raw_json: undefined,
 });
 
 const mapMember = (item, statusCode, rawBody) => {
@@ -427,8 +429,8 @@ const handleListMembers = async (req, ctx) => {
   return {
     members,
     http_status: result.status,
-    raw_body: result.rawBody,
-    raw_json: toValue(result.rawJSON),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 

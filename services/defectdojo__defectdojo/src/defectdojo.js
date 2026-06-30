@@ -256,14 +256,15 @@ const toValue = (value) => {
 };
 
 const throwStructuredError = (code, message, options = {}) => {
+  const rawBody = String(options.rawBody ?? '');
   const payload = {
     code,
     message,
     http_status: Number(options.httpStatus ?? 0),
-    raw_body: String(options.rawBody ?? ''),
+    raw_body: '',
+    raw_body_length: rawBody.length,
   };
   if (options.reason) payload.reason = String(options.reason);
-  if (options.rawJson !== undefined) payload.raw_json = options.rawJson;
   throw errorWithCode(code, JSON.stringify(payload));
 };
 
@@ -375,9 +376,9 @@ const parseDefectDojoResponse = ({ httpStatus, rawBody }) => {
   }
   return {
     http_status: httpStatus,
-    raw_body: rawBody,
+    raw_body: '',
     json: parsed.value,
-    raw_json: toValue(parsed.value),
+    raw_json: undefined,
   };
 };
 

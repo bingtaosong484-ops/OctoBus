@@ -107,7 +107,7 @@ test('BlockIP sends expected query parameters and returns success payload', asyn
   assert.equal(result.success, true);
   assert.equal(result.status_code, 200);
   assert.equal(result.message, 'block ip succeeded');
-  assert.deepEqual(result.raw_json, { code: 0, content: { affected: 1 } });
+  assert.equal(result.raw_json, undefined);
   assert.equal(result.idempotent_success, false);
 });
 
@@ -180,8 +180,8 @@ test('BlockIP accepts empty, plain text, and JSON array success bodies', async (
     const result = await rpcdef(buildCtx({ req: { ip: '1.1.1.1' } }))[BLOCK_IP_PATH]();
     assert.equal(result.success, true);
     assert.equal(result.status_code, status);
-    assert.equal(result.raw_body, body);
-    assert.equal(result.raw_json, rawJSON);
+    assert.equal(result.raw_body, '');
+    assert.equal(result.raw_json, undefined);
   }
 });
 
@@ -217,7 +217,8 @@ test('business failures return FAILED_PRECONDITION with raw body envelope', asyn
       (err, payload) => {
         assert.equal(payload.message, message);
         assert.equal(payload.status_code, status);
-        assert.equal(payload.raw_body, body);
+        assert.equal(payload.raw_body, '');
+        assert.equal(payload.raw_body_length, body.length);
       },
     );
   }
@@ -238,7 +239,8 @@ test('401 and 403 responses map to PERMISSION_DENIED with raw body envelope', as
       (err, payload) => {
         assert.equal(payload.message, 'upstream permission denied');
         assert.equal(payload.status_code, status);
-        assert.equal(payload.raw_body, body);
+        assert.equal(payload.raw_body, '');
+        assert.equal(payload.raw_body_length, body.length);
       },
     );
   }
@@ -255,7 +257,8 @@ test('invalid JSON object response maps to UNKNOWN', async () => {
     'UNKNOWN',
     (err, payload) => {
       assert.equal(payload.status_code, 200);
-      assert.equal(payload.raw_body, '{');
+      assert.equal(payload.raw_body, '');
+      assert.equal(payload.raw_body_length, 1);
     },
   );
 });

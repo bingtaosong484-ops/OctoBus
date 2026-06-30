@@ -295,14 +295,18 @@ const toValue = (value) => {
   return { stringValue: String(value) };
 };
 
-const toFortinetResponse = (json, text) => ({
-  status: stringifyCell(json?.status),
-  http_status: toInteger(firstDefined(json?.http_status, json?.httpStatus), 0),
-  error: toInteger(json?.error, 0),
-  revision: stringifyCell(json?.revision),
-  results: toValue(json?.results ?? null),
-  raw_json: text,
-});
+const toFortinetResponse = (json, text) => {
+  const response = {
+    status: stringifyCell(json?.status),
+    http_status: toInteger(firstDefined(json?.http_status, json?.httpStatus), 0),
+    error: toInteger(json?.error, 0),
+    revision: stringifyCell(json?.revision),
+    results: toValue(json?.results ?? null),
+    raw_json: '',
+  };
+  Object.defineProperty(response, 'parsed_json', { value: json, enumerable: false });
+  return response;
+};
 
 const assertSuccess = (json, fallbackMessage) => {
   const status = stringifyCell(json?.status).trim().toLowerCase();
@@ -470,7 +474,7 @@ const handleAttachSubGroupToPolicyAddrGroup = async (req, ctx) => {
   const policyBookName = requireString(req?.policy_book_name ?? req?.policyBookName, 'policy_book_name');
   const subGroupName = requireString(req?.sub_group_name ?? req?.subGroupName, 'sub_group_name');
   const current = await handleGetAddrGroup({ group_name: policyBookName }, ctx);
-  const members = extractMembers(parseJsonBody(current.raw_json));
+  const members = extractMembers(current.parsed_json);
   if (!members.some((item) => item.name === subGroupName)) members.push({ name: subGroupName });
   return updatePolicyGroupMembers(policyBookName, members, ctx, 'attach subgroup to policy addr group');
 };
@@ -480,7 +484,7 @@ const handleDetachSubGroupFromPolicyAddrGroup = async (req, ctx) => {
   const policyBookName = requireString(req?.policy_book_name ?? req?.policyBookName, 'policy_book_name');
   const subGroupName = requireString(req?.sub_group_name ?? req?.subGroupName, 'sub_group_name');
   const current = await handleGetAddrGroup({ group_name: policyBookName }, ctx);
-  const members = extractMembers(parseJsonBody(current.raw_json)).filter((item) => item.name !== subGroupName);
+  const members = extractMembers(current.parsed_json).filter((item) => item.name !== subGroupName);
   return updatePolicyGroupMembers(policyBookName, members, ctx, 'detach subgroup from policy addr group');
 };
 

@@ -380,7 +380,7 @@ test("SearchIncidents maps common filters and lets typed fields override extra f
   });
   assert.equal(result.total, 2);
   assert.deepEqual(result.data.item, [{ id: "one" }]);
-  assert.equal(result.raw_json.code, "Success");
+  assert.equal(result.raw_json, undefined);
 });
 
 test("SearchAlerts maps alert-specific filters", async () => {
@@ -487,7 +487,7 @@ test("GetAlertContext requires UUID and returns structured alert proof", async (
     path: "/api/xdr/v1/alerts/alert-1/proof",
   });
   assert.deepEqual(result.data, { proofType: "network", sourceIp: "1.1.1.1" });
-  assert.equal(result.raw_json.code, "Success");
+  assert.equal(result.raw_json, undefined);
 });
 
 test("GetIncidentContext fetches proof and all entity groups by default", async () => {
@@ -618,6 +618,6 @@ test("handler mapping helpers cover empty values and response fallbacks", () => 
     page: 0,
     page_size: 0,
     data: null,
-    raw_json: {},
+    raw_json: undefined,
   });
 });

@@ -153,14 +153,15 @@ const toValue = (value) => {
 };
 
 const throwStructuredError = (code, message, options = {}) => {
+  const rawBody = String(options.rawBody ?? '');
   const payload = {
     code,
     message,
     http_status: Number(options.httpStatus ?? 0),
-    raw_body: String(options.rawBody ?? ''),
+    raw_body: '',
+    raw_body_length: rawBody.length,
   };
   if (options.reason) payload.reason = String(options.reason);
-  if (options.rawJson !== undefined) payload.raw_json = options.rawJson;
   if (options.responseCode !== undefined) payload.response_code = options.responseCode;
   if (options.verboseMsg !== undefined) payload.verbose_msg = options.verboseMsg;
   throw errorWithCode(code, JSON.stringify(payload));
@@ -333,8 +334,8 @@ const mapUploadResponse = (result) => {
   const json = parseThreatBookJSON(result);
   return {
     http_status: result.httpStatus,
-    raw_body: result.rawBody,
-    raw_json: toValue(json),
+    raw_body: '',
+    raw_json: undefined,
     sha256: toTrimmedString(json.data?.sha256),
     permalink: toTrimmedString(json.data?.permalink),
   };
@@ -362,8 +363,8 @@ const mapFileReportResponse = (result) => {
   const json = parseThreatBookJSON(result);
   return {
     http_status: result.httpStatus,
-    raw_body: result.rawBody,
-    raw_json: toValue(json),
+    raw_body: '',
+    raw_json: undefined,
     summary: mapSummary(json.data?.summary ?? {}),
     permalink: toTrimmedString(json.data?.permalink),
     data: toValue(json.data ?? {}),
@@ -386,8 +387,8 @@ const mapMultiEnginesReportResponse = (result) => {
   const json = parseThreatBookJSON(result);
   return {
     http_status: result.httpStatus,
-    raw_body: result.rawBody,
-    raw_json: toValue(json),
+    raw_body: '',
+    raw_json: undefined,
     multiengines: mapMultiEngines(json.data?.multiengines ?? {}),
     data: toValue(json.data ?? {}),
   };

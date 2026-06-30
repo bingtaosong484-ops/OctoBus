@@ -279,12 +279,12 @@ const requestJson = async (ctx, method, path, headers, body) => {
   const parsed = parseJsonSafe(text);
   if (!parsed.ok) {
     logFlow(callCtx, `${method}:protocol_error`, { http_status: res.status, reason: 'invalid_json' });
-    throw errorWithCode('UNKNOWN', 'response is not valid JSON', { http_status: res.status, raw_body: text });
+    throw errorWithCode('UNKNOWN', 'response is not valid JSON', { http_status: res.status, raw_body: '', raw_body_length: text.length });
   }
   if (res.status < 200 || res.status >= 300) {
     const code = mapHTTPErrorCode(res.status);
-    logFlow(callCtx, `${method}:http_error`, { http_status: res.status, raw_json: parsed.value });
-    throw errorWithCode(code, `upstream http ${res.status}`, { http_status: res.status, raw_body: text, raw_json: parsed.value });
+    logFlow(callCtx, `${method}:http_error`, { http_status: res.status });
+    throw errorWithCode(code, `upstream http ${res.status}`, { http_status: res.status, raw_body: '', raw_body_length: text.length });
   }
   return { httpStatus: res.status, rawBody: text, rawJson: parsed.value };
 };
@@ -301,7 +301,7 @@ const authenticate = async (ctx) => {
   if (!sessionId) {
     throw errorWithCode('PERMISSION_DENIED', 'failed authenticating to MX', {
       http_status: result.httpStatus,
-      raw_json: result.rawJson,
+      raw_json: undefined,
     });
   }
   return { cookie: sessionId, login: result };
@@ -363,14 +363,14 @@ const buildIPEntry = (ip, operation) => ({
 });
 
 const normalizeIPEntry = (entry) => {
-  if (typeof entry === 'string') return { ip: entry, comment: '', created_at: '', raw_json: toValue(entry) };
+  if (typeof entry === 'string') return { ip: entry, comment: '', created_at: '', raw_json: undefined };
   const ip = trimString(firstDefined(entry?.ipAddressFrom, entry?.ipAddressTo, entry?.networkAddress, entry?.ip, entry?.address));
   if (!ip) return null;
   return {
     ip,
     comment: trimString(firstDefined(entry?.comment, entry?.description, '')),
     created_at: trimString(firstDefined(entry?.created_at, entry?.createdAt, entry?.created, '')),
-    raw_json: toValue(entry),
+    raw_json: undefined,
   };
 };
 
@@ -498,8 +498,8 @@ const checkOnline = async (req = {}, ctx = {}) => {
     success: true,
     http_status: result.httpStatus,
     message: trimString(firstDefined(result.rawJson?.serverVersion, result.rawJson?.version, '')),
-    raw_body: result.rawBody,
-    raw_json: toValue(result.rawJson),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 
@@ -516,8 +516,8 @@ const blockIP = async (req = {}, ctx = {}) => {
     success: true,
     http_status: result.httpStatus,
     message: trimString(firstDefined(result.rawJson?.message, result.rawJson?.msg, '')),
-    raw_body: result.rawBody,
-    raw_json: toValue(result.rawJson),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 
@@ -529,8 +529,8 @@ const listBlockedIPs = async (req = {}, ctx = {}) => {
   return {
     items: entries.map(normalizeIPEntry).filter(Boolean),
     http_status: result.httpStatus,
-    raw_body: result.rawBody,
-    raw_json: toValue(result.rawJson),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 
@@ -544,8 +544,8 @@ const unblockIP = async (req = {}, ctx = {}) => {
     success: true,
     http_status: result.httpStatus,
     message: trimString(firstDefined(result.rawJson?.message, result.rawJson?.msg, '')),
-    raw_body: result.rawBody,
-    raw_json: toValue(result.rawJson),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 

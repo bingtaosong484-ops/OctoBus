@@ -92,8 +92,8 @@ test('mock upstream supports block and unblock workflow', async () => {
     const block = await callHandler(METHOD_BLOCK_IP_FULL, { ip: '1.1.1.1', comment: 'c', type: 1, timeout: 60, time_type: 60, color: 0 }, ctx);
     assert.equal(block.success, true);
     assert.equal(block.msg_type, 'success');
-    assert.match(block.login_raw_json, /mock-token/);
-    assert.match(block.logout_raw_text, /ok/);
+    assert.equal(block.login_raw_json, '');
+    assert.equal(block.logout_raw_text, '[redacted]');
 
     const unblock = await callHandler(METHOD_UNBLOCK_IP_FULL, { ip: '1.1.1.1', color: 0, type: 1 }, ctx);
     assert.equal(unblock.success, true);
@@ -179,7 +179,7 @@ test('logout failure is recorded but does not override success', async () => {
 
   const res = await callHandler(METHOD_BLOCK_IP_FULL, { ip: '1.1.1.1' }, buildCtx());
   assert.equal(res.success, true);
-  assert.match(res.logout_raw_text, /UNAVAILABLE: upstream http 500/);
+  assert.equal(res.logout_raw_text, '[redacted]');
   assert.ok(logs.some((line) => line.includes('success":false')));
 });
 

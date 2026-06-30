@@ -147,7 +147,7 @@ test('QueryBlacklist handles empty, non-JSON, and non-2xx responses', async () =
   globalThis.fetch = async () => responseWithStatus(200, 'plain');
   assert.deepEqual(await handler(), {
     http_status: 200,
-    raw_body: 'plain',
+    raw_body: '',
     raw_json: undefined,
     vals: [],
     msg: '',
@@ -156,7 +156,7 @@ test('QueryBlacklist handles empty, non-JSON, and non-2xx responses', async () =
   globalThis.fetch = async () => responseWithStatus(200, '{bad');
   assert.deepEqual(await handler(), {
     http_status: 200,
-    raw_body: '{bad',
+    raw_body: '',
     raw_json: undefined,
     vals: [],
     msg: '',
@@ -447,8 +447,8 @@ test('helper utilities cover aliases and edge cases', async () => {
   assert.deepEqual(_test.buildHeaders('T'), { 'Content-Type': 'application/json;charset=UTF-8', AuthorizationToken: 'T' });
   assert.deepEqual(_test.parseBusinessResponse(200, JSON.stringify({ msg: 'success' })), {
     http_status: 200,
-    raw_body: '{"msg":"success"}',
-    raw_json: { structValue: { fields: { msg: { stringValue: 'success' } } } },
+    raw_body: '',
+    raw_json: undefined,
     msg: 'success',
   });
   assert.deepEqual(_test.parseBusinessResponse(204, ''), {

@@ -303,7 +303,7 @@ const handleBlock = async (ctx = {}, token, params) => {
   const success = isBlockSemanticSuccess(msgType, msg);
   logFlow(callCtx, 'BlockIP', { host: callCtx.host, user: callCtx.user, ip: params.ip, elapsed_ms: Date.now() - started, success, msgType });
   if (!success) throw errorWithCode('FAILED_PRECONDITION', String(msg || '封禁IP失败'));
-  return { success: true, msg_type: String(msgType || ''), msg: String(msg || ''), raw_json: text };
+  return { success: true, msg_type: String(msgType || ''), msg: String(msg || ''), raw_json: '' };
 };
 
 const handleUnblock = async (ctx = {}, token, params) => {
@@ -328,7 +328,7 @@ const handleUnblock = async (ctx = {}, token, params) => {
     success: true,
     msg_type: String(msgType || ''),
     msg: String(msg || ''),
-    raw_json: text,
+    raw_json: '',
     computed_id: params.computedId,
     computed_ip: params.ipWithMask,
   };
@@ -362,7 +362,7 @@ const runBlockIP = async (req = {}, ctx = {}) => {
   const callCtx = resolveCallContext({ ...ctx, req: request, request });
   const params = validateBlockReq(callCtx.req || {});
   const { result, loginRaw, logoutText } = await withSession(callCtx, (login) => handleBlock(callCtx, login.token, params));
-  return { ...result, login_raw_json: loginRaw, logout_raw_text: logoutText };
+  return { ...result, login_raw_json: '', logout_raw_text: logoutText ? '[redacted]' : '' };
 };
 
 const runUnblockIP = async (req = {}, ctx = {}) => {
@@ -370,7 +370,7 @@ const runUnblockIP = async (req = {}, ctx = {}) => {
   const callCtx = resolveCallContext({ ...ctx, req: request, request });
   const params = validateUnblockReq(callCtx.req || {});
   const { result, loginRaw, logoutText } = await withSession(callCtx, (login) => handleUnblock(callCtx, login.token, params));
-  return { ...result, login_raw_json: loginRaw, logout_raw_text: logoutText };
+  return { ...result, login_raw_json: '', logout_raw_text: logoutText ? '[redacted]' : '' };
 };
 
 export function rpcdef(ctx = {}) {

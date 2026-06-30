@@ -259,7 +259,7 @@ const normalizeFirewallRule = (rule) => {
     status: trimString(firstDefined(rule?.status, rule?.Status)),
     policy: trimString(firstDefined(rule?.policy, rule?.Policy)),
     tags: normalizeTags(firstDefined(rule?.tags, rule?.Tags)) ?? [],
-    raw_json: toValue(rule ?? null),
+    raw_json: undefined,
   };
 };
 
@@ -268,7 +268,7 @@ const baseResponse = (response) => {
   return {
     success: true,
     request_id: trimString(firstDefined(body.requestId, body.RequestId)),
-    raw_json: toValue(body),
+    raw_json: undefined,
   };
 };
 

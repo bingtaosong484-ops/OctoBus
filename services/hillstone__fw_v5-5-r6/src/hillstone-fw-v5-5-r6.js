@@ -354,7 +354,7 @@ const handleCreateAddrGroup = async (req, ctx) => {
     body: JSON.stringify(addrGroups),
   }, callCtx);
 
-  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: httpBody };
+  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: '' };
   if (httpStatus === 401 || httpStatus === 403) clearSession(callCtx, host);
   throwForStatus(httpStatus, httpBody);
 };
@@ -374,7 +374,7 @@ const handleUpdateAddrGroup = async (req, ctx) => {
     body: JSON.stringify(addrGroups),
   }, callCtx);
 
-  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: httpBody };
+  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: '' };
   if (httpStatus === 401 || httpStatus === 403) clearSession(callCtx, host);
   throwForStatus(httpStatus, httpBody);
 };
@@ -401,7 +401,7 @@ const handleQueryAddrGroup = async (req, ctx) => {
     headers: buildHeaders(callCtx, { Cookie: buildCookieHeader(session) }),
   }, callCtx);
 
-  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: httpBody };
+  if (httpStatus >= 200 && httpStatus < 300) return { http_status: httpStatus, http_body: '' };
   if (httpStatus === 401 || httpStatus === 403) clearSession(callCtx, host);
   throwForStatus(httpStatus, httpBody);
 };

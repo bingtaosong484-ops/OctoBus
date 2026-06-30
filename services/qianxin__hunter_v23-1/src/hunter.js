@@ -86,9 +86,7 @@ const mapSearchResult = (item) => ({
   header: String(item?.header ?? ''),
   banner: String(item?.banner ?? ''),
   updated_at: String(item?.updated_at ?? ''),
-  raw_json: (() => {
-    try { return JSON.stringify(item); } catch { return '{}'; }
-  })(),
+  raw_json: '',
 });
 
 // ---- RPC definition ----

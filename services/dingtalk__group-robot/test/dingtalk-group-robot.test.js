@@ -154,7 +154,7 @@ test('SendTextMessage returns success on HTTP 200 and signs URL', async () => {
   }))[METHOD_SEND_TEXT_PATH]();
 
   assert.equal(res.http_status, 200);
-  assert.match(res.http_body, /"errcode":0/);
+  assert.equal(res.http_body, '');
   assert.match(capturedUrl, /timestamp=/);
   assert.match(capturedUrl, /sign=/);
   assert.equal(capturedInit.method, 'POST');
@@ -192,7 +192,7 @@ test('HTTP 200 with non-zero errcode still returns OK payload', async () => {
   const res = await rpcdef(buildCtx({ req: { send_msg: 'test message' } }))[METHOD_SEND_TEXT_PATH]();
 
   assert.equal(res.http_status, 200);
-  assert.match(res.http_body, /90030/);
+  assert.equal(res.http_body, '');
 });
 
 test('HTTP non-2xx responses throw gRPC errors with HTTP details', async () => {
@@ -204,7 +204,8 @@ test('HTTP non-2xx responses throw gRPC errors with HTTP details', async () => {
       assert.equal(err.code, grpcStatus.INTERNAL);
       assert.equal(err.legacyCode, 'INTERNAL');
       assert.equal(err.httpStatus, 400);
-      assert.match(err.httpBody, /bad request/);
+      assert.equal(err.httpBody, '');
+      assert.ok(err.httpBodyLength > 0);
       return true;
     },
   );
@@ -214,7 +215,8 @@ test('HTTP non-2xx responses throw gRPC errors with HTTP details', async () => {
     () => rpcdef(buildCtx({ req: { send_msg: 'test message' } }))[METHOD_SEND_TEXT_PATH](),
     (err) => {
       assert.equal(err.httpStatus, 500);
-      assert.equal(err.httpBody, 'Internal Server Error');
+      assert.equal(err.httpBody, '');
+      assert.equal(err.httpBodyLength, 'Internal Server Error'.length);
       return true;
     },
   );

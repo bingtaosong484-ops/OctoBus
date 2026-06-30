@@ -96,7 +96,7 @@ test('CheckOnline authenticates then reads MX version', async () => {
   assert.ok(calls[1].init.signal instanceof AbortSignal);
   assert.equal(result.success, true);
   assert.equal(result.message, '13.6.90');
-  assert.equal(result.raw_json.structValue.fields.serverVersion.stringValue, '13.6.90');
+  assert.equal(result.raw_json, undefined);
   assert.match(JSON.stringify(logs), /Imperva_WAF_Gateway_v13_6_90/);
 });
 
@@ -263,7 +263,7 @@ test('ListBlockedIPs reads entries from configured IP group', async () => {
   assert.equal(result.items[0].ip, '203.0.113.45');
   assert.equal(result.items[1].ip, '2001:db8::1');
   assert.equal(result.items[1].comment, 'ipv6');
-  assert.equal(result.raw_json.structValue.fields.entries.listValue.values.length, 3);
+  assert.equal(result.raw_json, undefined);
 });
 
 test('SDK handlers accept single context with config and secret', async () => {

@@ -134,7 +134,7 @@ test('SendTextMessage returns OK on HTTP 200', async () => {
   }))[METHOD_SEND_TEXT_PATH]();
 
   assert.equal(res.http_status, 200);
-  assert.equal(res.http_body, 'ok');
+  assert.equal(res.http_body, '');
   assert.equal(capturedInit.method, 'POST');
   assert.equal(capturedInit.headers['Content-Type'], 'application/json');
   assert.ok(capturedInit.signal instanceof AbortSignal);
@@ -162,7 +162,8 @@ test('HTTP non-200 responses throw with HTTP details', async () => {
       assert.equal(err.code, grpcStatus.UNAVAILABLE);
       assert.equal(err.legacyCode, 'UNAVAILABLE');
       assert.equal(err.httpStatus, 400);
-      assert.equal(err.httpBody, 'invalid_payload');
+      assert.equal(err.httpBody, '');
+      assert.equal(err.httpBodyLength, 'invalid_payload'.length);
       return true;
     },
   );
@@ -172,7 +173,8 @@ test('HTTP non-200 responses throw with HTTP details', async () => {
     () => rpcdef(buildCtx({ req: { message: 'test' } }))[METHOD_SEND_TEXT_PATH](),
     (err) => {
       assert.equal(err.httpStatus, 500);
-      assert.equal(err.httpBody, 'server_error');
+      assert.equal(err.httpBody, '');
+      assert.equal(err.httpBodyLength, 'server_error'.length);
       return true;
     },
   );

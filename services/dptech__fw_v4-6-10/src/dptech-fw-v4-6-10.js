@@ -259,15 +259,16 @@ const tryParseJson = (text) => {
 };
 
 const throwStructuredError = (code, message, options = {}) => {
+  const rawBody = String(options.rawBody ?? '');
   const payload = {
     code,
     message,
     http_status: Number(options.httpStatus ?? 0),
-    raw_body: String(options.rawBody ?? ''),
+    raw_body: '',
+    raw_body_length: rawBody.length,
   };
   if (options.reason) payload.reason = String(options.reason);
   if (options.ret !== undefined) payload.ret = String(options.ret);
-  if (options.rawJson !== undefined) payload.raw_json = options.rawJson;
   throw errorWithCode(code, JSON.stringify(payload));
 };
 
@@ -332,8 +333,8 @@ const fetchUpstream = async (ctx, path, init = {}, query = {}) => {
 const successResponse = (httpStatus, rawBody, json, extra = {}) => ({
   http_status: Number(httpStatus),
   ret: json && hasOwn(json, 'ret') ? unwrapScalar(json.ret) : '',
-  raw_body: String(rawBody ?? ''),
-  raw_json: toValue(json),
+  raw_body: '',
+  raw_json: undefined,
   ...extra,
 });
 

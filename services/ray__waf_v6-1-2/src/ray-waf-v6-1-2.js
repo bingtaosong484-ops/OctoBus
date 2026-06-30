@@ -307,7 +307,7 @@ const mapBlacklistRecord = (item) => {
     direction: toInteger(item[4], 0),
     remark: stringifyCell(item[5]),
     extra_columns: item.slice(6).map((entry) => stringifyCell(entry)),
-    raw_json: stringifyJson(item),
+    raw_json: '',
   };
 };
 
@@ -325,7 +325,7 @@ const handleQueryBlacklist = async (req = {}, ctx = {}) => {
     i_total_display_records: toInteger(json?.iTotalDisplayRecords, 0),
     i_total_records: toInteger(json?.iTotalRecords, 0),
     s_echo: stringifyCell(json?.sEcho),
-    raw_json: text,
+    raw_json: '',
   };
   logFlow(callCtx, 'QueryBlacklist', { host, user, record_count: result.records.length, elapsed_ms: Date.now() - started, success: true });
   return result;
@@ -371,7 +371,7 @@ const handleBlockIP = async (req = {}, ctx = {}) => {
     success_raw: stringifyCell(json?.success),
     id,
     errormessage: stringifyCell(json?.errormessage),
-    raw_json: text,
+    raw_json: '',
   };
   logFlow(callCtx, 'BlockIP', { host, user, ip, ids: payload.ids, elapsed_ms: Date.now() - started, success: true });
   return result;
@@ -397,7 +397,7 @@ const handleUnblockIP = async (req = {}, ctx = {}) => {
     success: true,
     success_raw: stringifyCell(json?.success),
     errormessage: stringifyCell(json?.errormessage),
-    raw_json: text,
+    raw_json: '',
   };
   logFlow(callCtx, 'UnblockIP', { host, user, ids, elapsed_ms: Date.now() - started, success: true });
   return result;

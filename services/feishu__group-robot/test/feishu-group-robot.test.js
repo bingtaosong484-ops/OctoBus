@@ -93,7 +93,7 @@ test('SendTextMessage sends correct payload and returns status 200 response', as
     content: { text: 'test message' },
   });
   assert.equal(res.http_status, 200);
-  assert.equal(JSON.parse(res.http_body).StatusCode, 0);
+  assert.equal(res.http_body, '');
   assert.match(logs.join('\n'), /\/hook\/\*\*\*/);
 });
 
@@ -101,12 +101,12 @@ test('SendTextMessage accepts status 209 and 210 as success', async () => {
   globalThis.fetch = async () => mockResponse(209, { StatusCode: 0, StatusMessage: 'success with 209' });
   const res209 = await rpcdef(buildCtx({ req: { message: 'test' } }))[METHOD_SEND_TEXT_PATH]();
   assert.equal(res209.http_status, 209);
-  assert.match(res209.http_body, /success with 209/);
+  assert.equal(res209.http_body, '');
 
   globalThis.fetch = async () => mockResponse(210, { StatusCode: 0, StatusMessage: 'success with 210' });
   const res210 = await rpcdef(buildCtx({ req: { message: 'test' } }))[METHOD_SEND_TEXT_PATH]();
   assert.equal(res210.http_status, 210);
-  assert.match(res210.http_body, /success with 210/);
+  assert.equal(res210.http_body, '');
 });
 
 test('SendTextMessage rejects non-success HTTP statuses', async () => {
@@ -127,12 +127,12 @@ test('SendTextMessage rejects non-success HTTP statuses', async () => {
 test('business error and non-JSON body are preserved on successful HTTP status', async () => {
   globalThis.fetch = async () => mockResponse(200, { StatusCode: 10003, StatusMessage: 'token is invalid' });
   const businessRes = await rpcdef(buildCtx({ req: { message: 'test' } }))[METHOD_SEND_TEXT_PATH]();
-  assert.equal(JSON.parse(businessRes.http_body).StatusCode, 10003);
+  assert.equal(businessRes.http_body, '');
 
   globalThis.fetch = async () => mockResponse(200, 'OK');
   const textRes = await rpcdef(buildCtx({ req: { message: 'test' } }))[METHOD_SEND_TEXT_PATH]();
   assert.equal(textRes.http_status, 200);
-  assert.equal(textRes.http_body, 'OK');
+  assert.equal(textRes.http_body, '');
 });
 
 test('network failures map to UNAVAILABLE', async () => {

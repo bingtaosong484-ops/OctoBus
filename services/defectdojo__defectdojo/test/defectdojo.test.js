@@ -234,7 +234,7 @@ test('GetFinding validates id and returns object response', async () => {
   const res = await handler();
 
   assert.equal(capturedUrl, 'http://localhost:8080/api/v2/findings/9/');
-  assert.equal(res.raw_json.structValue.fields.title.stringValue, 'XSS');
+  assert.equal(res.raw_json, undefined);
 });
 
 test('ImportScan sends multipart report upload', async () => {
@@ -271,7 +271,7 @@ test('ImportScan sends multipart report upload', async () => {
   assert.match(captured.init.body, /name="close_old_findings"\r\n\r\nfalse\r\n/);
   assert.match(captured.init.body, /name="file"; filename="zap.xml"/);
   assert.match(captured.init.body, /<OWASPZAPReport><\/OWASPZAPReport>/);
-  assert.equal(res.raw_json.structValue.fields.test.numberValue, 10);
+  assert.equal(res.raw_json, undefined);
 });
 
 test('ReimportScan sends multipart report upload with test selector', async () => {
@@ -302,7 +302,7 @@ test('ReimportScan sends multipart report upload with test selector', async () =
   assert.match(captured.init.body, /name="test"\r\n\r\n11\r\n/);
   assert.match(captured.init.body, /name="do_not_reactivate"\r\n\r\nfalse\r\n/);
   assert.match(captured.init.body, /name="file"; filename="generic.json"/);
-  assert.equal(res.raw_json.structValue.fields.findings_count.numberValue, 1);
+  assert.equal(res.raw_json, undefined);
 });
 
 test('ImportScan and ReimportScan validate required fields before downstream call', async () => {

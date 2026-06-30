@@ -273,12 +273,13 @@ const fetchKibana = async (url, ctx = {}, options = {}) => {
 const returnOrThrow = async (url, ctx, options = {}) => {
   const { httpStatus, httpBody, responseHeadersJSON = '{}' } = await fetchKibana(url, ctx, options);
   if (httpStatus >= 200 && httpStatus < 300) {
-    return { http_status: httpStatus, http_body: httpBody, response_headers_json: responseHeadersJSON };
+    return { http_status: httpStatus, http_body: '', response_headers_json: responseHeadersJSON };
   }
   const code = mapHttpStatusToCode(httpStatus);
-  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}: ${httpBody}`), {
+  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}`), {
     http_status: httpStatus,
-    http_body: httpBody,
+    http_body: '',
+    http_body_length: String(httpBody ?? '').length,
     response_headers_json: responseHeadersJSON,
   });
 };

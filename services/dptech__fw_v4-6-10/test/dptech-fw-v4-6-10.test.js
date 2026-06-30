@@ -110,7 +110,7 @@ test('EnablePacketFilterImmediate returns ret and raw json', async () => {
   assert.equal(captured.init.method, 'PUT');
   assert.deepEqual(JSON.parse(captured.init.body), { pfInEfList: { ipVersion: '4', enable: 'true' } });
   assert.equal(result.ret, '0');
-  assert.equal(result.raw_json.structValue.fields.ret.stringValue, '0');
+  assert.equal(result.raw_json, undefined);
 });
 
 test('basic auth fallback handles utf8 without Buffer or TextEncoder', () => {
@@ -223,7 +223,7 @@ test('UpdateAddressGroup handles empty, duplicate text, JSON success, and non-JS
   assert.deepEqual(await handler(req), { http_status: 200, ret: '', raw_body: '', raw_json: undefined });
 
   globalThis.fetch = async () => okResponse('Duplicate IP address ranges.');
-  assert.equal((await handler({ ...req, new_group_name: 'DUPLICATE' })).raw_body, 'Duplicate IP address ranges.');
+  assert.equal((await handler({ ...req, new_group_name: 'DUPLICATE' })).raw_body, '');
 
   globalThis.fetch = async () => okResponse(JSON.stringify({ ret: '0' }));
   assert.equal((await handler(req)).ret, '0');
@@ -332,7 +332,8 @@ test('HTTP statuses and business ret failures become structured errors', async (
     'PERMISSION_DENIED',
     (payload) => {
       assert.equal(payload.http_status, 401);
-      assert.deepEqual(payload.raw_json, { ret: '-401', msg: 'unauthorized' });
+      assert.equal(payload.raw_json, undefined);
+      assert.ok(payload.raw_body_length > 0);
     },
   );
 
@@ -366,7 +367,8 @@ test('non-JSON 200 and fetch failures become structured errors', async () => {
   globalThis.fetch = async () => okResponse('not-json');
   await expectStructuredError(() => rpcdef(buildCtx())[GET_PACKET_FILTER_STATUS_PATH](), 'UNKNOWN', (payload) => {
     assert.equal(payload.http_status, 200);
-    assert.equal(payload.raw_body, 'not-json');
+    assert.equal(payload.raw_body, '');
+    assert.equal(payload.raw_body_length, 'not-json'.length);
     assert.equal(payload.reason, 'response is not valid JSON');
   });
 
@@ -435,7 +437,7 @@ test('SDK handlers and service wrapper expose expected entries', async () => {
     },
   });
 
-  assert.equal(result.raw_body, 'Duplicate IP address ranges.');
+  assert.equal(result.raw_body, '');
   assert.ok(service);
 });
 
@@ -524,7 +526,7 @@ test('helper defaults and null request fallbacks are stable', async () => {
     http_status: 200,
     ret: '',
     raw_body: '',
-    raw_json: { structValue: { fields: { msg: { stringValue: 'ok' } } } },
+    raw_json: undefined,
   });
   assert.throws(
     () => _test.throwStructuredError('NOT_A_GRPC_CODE', 'fallback status'),

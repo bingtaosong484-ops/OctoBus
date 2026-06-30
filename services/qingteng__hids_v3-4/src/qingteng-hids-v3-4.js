@@ -40,11 +40,13 @@ const errorWithCode = (code, message) => {
 };
 
 const upstreamError = (code, message, details = {}) => {
+  const rawBody = typeof details.rawBody === 'string' ? details.rawBody : '';
   const payload = {
     code,
     message,
     http_status: Number.isFinite(Number(details.httpStatus)) ? Number(details.httpStatus) : 0,
-    raw_body: typeof details.rawBody === 'string' ? details.rawBody : '',
+    raw_body: '',
+    raw_body_length: rawBody.length,
     reason: String(details.reason || '').trim(),
   };
   const err = new GrpcError(grpcCodeFor(code), JSON.stringify(payload));
@@ -313,7 +315,7 @@ const loginOnce = async (ctx = {}) => {
     session,
     response: {
       http_status: response.status,
-      raw_body: response.text,
+      raw_body: '',
     },
   };
 };
@@ -388,7 +390,7 @@ const runSignedRequest = async (ctx = {}, requestFactory) => {
 
   return {
     http_status: result.response.status,
-    raw_body: result.response.text,
+    raw_body: '',
   };
 };
 

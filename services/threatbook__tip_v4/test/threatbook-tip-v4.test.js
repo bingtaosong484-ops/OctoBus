@@ -130,15 +130,14 @@ test('QueryIPReputation sends request and returns raw HTTP body on success', asy
   assert.equal(captured.init.tlsInsecureSkipVerify, undefined);
   assert.equal(captured.init.insecureSkipVerify, undefined);
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /"response_code":0/);
+  assert.equal(result.http_body, '');
 });
 
 test('HTTP 200 with business response_code failure stays gRPC OK', async () => {
   setFetch(async () => response(200, { response_code: 1001, verbose_msg: 'IP not found', data: [] }));
   const result = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { resource: '1.1.1.1' }, buildCtx());
   assert.equal(result.http_status, 200);
-  assert.match(result.http_body, /"response_code":1001/);
-  assert.match(result.http_body, /IP not found/);
+  assert.equal(result.http_body, '');
 });
 
 test('supports aliases and IPv6 query encoding', async () => {
@@ -172,7 +171,8 @@ test('maps HTTP and network failures with response details', async () => {
       legacyCode,
       (err) => {
         assert.equal(err.response.http_status, status);
-        assert.match(err.response.http_body, new RegExp(`status ${status}`));
+        assert.equal(err.response.http_body, '');
+        assert.ok(err.response.http_body_length > 0);
       },
     );
   }
@@ -185,7 +185,8 @@ test('maps HTTP and network failures with response details', async () => {
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
-      assert.match(err.response.http_body, /connection refused/);
+      assert.equal(err.response.http_body, '');
+      assert.ok(err.response.http_body_length > 0);
     },
   );
 
@@ -200,7 +201,8 @@ test('maps HTTP and network failures with response details', async () => {
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
-      assert.match(err.response.http_body, /read failed/);
+      assert.equal(err.response.http_body, '');
+      assert.ok(err.response.http_body_length > 0);
     },
   );
 });
@@ -264,9 +266,9 @@ test('mock upstream handles success, business failure, auth, and server errors',
     const ok = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, ctx);
     const biz = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '1.1.1.1' }, ctx);
     assert.equal(ok.http_status, 200);
-    assert.match(ok.http_body, /malicious/);
+    assert.equal(ok.http_body, '');
     assert.equal(biz.http_status, 200);
-    assert.match(biz.http_body, /IP not found/);
+    assert.equal(biz.http_body, '');
     assert.equal(server.requests[0].path, '/tip_api/v4/ip');
     assert.equal(server.requests[0].query.lang, 'zh');
 

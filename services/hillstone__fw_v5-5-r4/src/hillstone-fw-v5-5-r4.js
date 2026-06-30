@@ -190,10 +190,12 @@ const fetchText = async (ctx, url, init = {}) => {
   }
   const bodyText = String((await response.text()) ?? '');
   if (!response.ok) throwForHttpStatus(response.status, bodyText);
-  return {
+  const result = {
     http_status: Number(response.status),
-    http_body: bodyText,
+    http_body: '',
   };
+  Object.defineProperty(result, 'body_text', { value: bodyText, enumerable: false });
+  return result;
 };
 
 const asArray = (value) => {
@@ -350,7 +352,7 @@ const runLogin = async (req, ctx) => {
     headers: buildHeaders(callCtx),
     body: JSON.stringify(buildLoginPayload(req, callCtx)),
   });
-  const session = extractSessionFromLogin(callCtx, response.http_status, response.http_body, lang);
+  const session = extractSessionFromLogin(callCtx, response.http_status, response.body_text, lang);
   if (session) setSession(callCtx, host, session);
   return { http_status: response.http_status, http_body: '' };
 };

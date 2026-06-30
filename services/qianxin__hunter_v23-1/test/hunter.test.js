@@ -63,7 +63,7 @@ test('internal helpers normalize inputs', async () => {
   assert.equal(mapped.domain, 'example.com');
   assert.equal(mapped.web_title, 'Example');
   assert.equal(mapped.protocol, 'https');
-  assert.equal(typeof mapped.raw_json, 'string');
+  assert.equal(mapped.raw_json, '');
 
   const empty = _test.mapSearchResult(null);
   assert.equal(empty.ip, '');
@@ -607,5 +607,5 @@ test('mapSearchResult handles JSON.stringify failure', async () => {
   const obj = { a: 1 };
   obj.self = obj;
   const result = _test.mapSearchResult(obj);
-  assert.equal(result.raw_json, '{}');
+  assert.equal(result.raw_json, '');
 });

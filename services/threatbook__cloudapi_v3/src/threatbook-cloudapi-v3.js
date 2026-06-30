@@ -165,14 +165,15 @@ const toValue = (value) => {
 };
 
 const throwStructuredError = (code, message, options = {}) => {
+  const rawBody = String(options.rawBody ?? '');
   const payload = {
     code,
     message,
     http_status: Number(options.httpStatus ?? 0),
-    raw_body: String(options.rawBody ?? ''),
+    raw_body: '',
+    raw_body_length: rawBody.length,
   };
   if (options.reason) payload.reason = String(options.reason);
-  if (options.rawJson !== undefined) payload.raw_json = options.rawJson;
   if (options.responseCode !== undefined) payload.response_code = options.responseCode;
   if (options.verboseMsg !== undefined) payload.verbose_msg = options.verboseMsg;
   throw errorWithCode(code, JSON.stringify(payload));
@@ -271,8 +272,8 @@ const parseThreatBookResponse = (result) => {
   const ok = assertThreatBookSuccess(result, parsed);
   return {
     http_status: result.httpStatus,
-    raw_body: result.rawBody,
-    raw_json: toValue(ok.json),
+    raw_body: '',
+    raw_json: undefined,
   };
 };
 

@@ -192,12 +192,13 @@ const handleQueryIPReputation = async (req = {}, ctx = {}) => {
   logFlow(callCtx, 'QueryIPReputation', { url: `${domain}${QUERY_IP_HTTP_PATH}`, ip, lang: DEFAULT_LANG });
   const { httpStatus, httpBody } = await fetchWithStatus(url, callCtx);
   if (httpStatus >= 200 && httpStatus < 300) {
-    return { http_status: httpStatus, http_body: httpBody };
+    return { http_status: httpStatus, http_body: '' };
   }
   const code = mapHttpStatusToCode(httpStatus);
-  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}: ${httpBody}`), {
+  throw attachResponse(errorWithCode(code, `upstream http ${httpStatus}`), {
     http_status: httpStatus,
-    http_body: httpBody,
+    http_body: '',
+    http_body_length: String(httpBody ?? '').length,
   });
 };
 

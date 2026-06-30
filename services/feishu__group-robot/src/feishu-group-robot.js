@@ -151,12 +151,16 @@ const sendToFeishu = async (ctx, webhook, payload, log) => {
   });
 
   if (!SUCCESS_STATUS_CODES.has(httpStatus)) {
-    throw errorWithCode('UNAVAILABLE', `upstream http ${httpStatus}: ${httpBody}`);
+    const err = errorWithCode('UNAVAILABLE', `upstream http ${httpStatus}`);
+    err.httpStatus = httpStatus;
+    err.httpBody = '';
+    err.httpBodyLength = httpBody.length;
+    throw err;
   }
 
   return {
     http_status: httpStatus,
-    http_body: httpBody,
+    http_body: '',
   };
 };
 
