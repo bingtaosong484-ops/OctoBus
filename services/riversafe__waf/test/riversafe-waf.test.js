@@ -33,6 +33,11 @@ const buildCtx = (overrides = {}) => ({
   req: overrides.req || {},
 });
 
+const callHandler = (method, request = {}, ctx = {}) => {
+  const handler = handlers[method];
+  return handler({ ...ctx, request });
+};
+
 const response = (status, body) => ({
   status,
   text: async () => (typeof body === 'string' ? body : JSON.stringify(body)),
@@ -82,22 +87,22 @@ test('service exports handler and rpcdef path', () => {
 
 test('rejects missing bindings and items', async () => {
   await expectGrpcError(
-    () => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx({ bindings: { host: '' } })),
+    () => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx({ bindings: { host: '' } })),
     'FAILED_PRECONDITION',
     (err) => assert.match(err.message, /host.*https URL/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx({ bindings: { token_id: '', tokenId: '' } })),
+    () => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx({ bindings: { token_id: '', tokenId: '' } })),
     'FAILED_PRECONDITION',
     (err) => assert.match(err.message, /token_id/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx({ bindings: { token: '' } })),
+    () => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx({ bindings: { token: '' } })),
     'FAILED_PRECONDITION',
     (err) => assert.match(err.message, /token/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_SYNC_FULL]({ items: [] }, buildCtx()),
+    () => callHandler(METHOD_SYNC_FULL, { items: [] }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /items is required/),
   );
@@ -105,7 +110,7 @@ test('rejects missing bindings and items', async () => {
 
 test('validates and normalizes IPv4 IPv6 and CIDR items', async () => {
   setFetch(async () => response(200, { err_no: 0, err_msg: 'ok' }));
-  const result = await handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1', { value: '1.1.1.0/24' }, '2607:f8b0:4005:809::200e'] }, buildCtx());
+  const result = await callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1', { value: '1.1.1.0/24' }, '2607:f8b0:4005:809::200e'] }, buildCtx());
   assert.equal(result.err_no, 0);
   assert.equal(_test.normalizeHostCIDR('1.1.1.1'), '1.1.1.1/32');
   assert.equal(_test.normalizeHostCIDR('2607:f8b0:4005:809::200e'), '2607:f8b0:4005:809::200e/128');
@@ -128,7 +133,7 @@ test('success path appends signing query params and returns response', async () 
     return response(200, { err_no: 0, err_msg: 'ok' });
   });
 
-  const result = await handlers[METHOD_SYNC_FULL](
+  const result = await callHandler(METHOD_SYNC_FULL,
     { Items: { values: ['1.1.1.1', '2607:f8b0:4005:809::200e'] } },
     buildCtx({ bindings: { host: 'https://example.com:20167/base?b=2&a=1&a=0', skipTlsVerify: true } }),
   );
@@ -179,48 +184,48 @@ test('transport protocol business and network errors map correctly', async () =>
   for (const [status, legacyCode] of [[401, 'PERMISSION_DENIED'], [403, 'PERMISSION_DENIED'], [404, 'FAILED_PRECONDITION'], [500, 'UNAVAILABLE']]) {
     setFetch(async () => response(status, { err_no: 1, err_msg: 'bad'.repeat(100) }));
     await expectGrpcError(
-      () => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()),
+      () => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()),
       legacyCode,
       (err) => assert.match(err.message, new RegExp(`upstream http ${status}`)),
     );
   }
 
   setFetch(async () => response(204, ''));
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
     assert.match(err.message, /empty response body/);
   });
 
   setFetch(async () => response(200, 'not-json'));
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
     assert.match(err.message, /not valid JSON/);
   });
 
   setFetch(async () => response(200, { err_msg: 'missing' }));
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNKNOWN', (err) => {
     assert.match(err.message, /missing err_no/);
   });
 
   setFetch(async () => response(200, { err_no: 123, err_msg: 'biz error' }));
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'FAILED_PRECONDITION', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'FAILED_PRECONDITION', (err) => {
     assert.match(err.message, /err_no=123/);
   });
 
   setFetch(async () => {
     throw Object.assign(new Error('outer'), { cause: new Error('socket timeout') });
   });
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
     assert.match(err.message, /socket timeout/);
   });
 
   setFetch(async () => {
     throw new Error('');
   });
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
     assert.match(err.message, /fetch failed/);
   });
 
   setFetch(async () => response(302, 'redirect'));
-  await expectGrpcError(() => handlers[METHOD_SYNC_FULL]({ items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
+  await expectGrpcError(() => callHandler(METHOD_SYNC_FULL, { items: ['1.1.1.1'] }, buildCtx()), 'UNAVAILABLE', (err) => {
     assert.match(err.message, /upstream http 302/);
   });
 });
@@ -354,18 +359,18 @@ test('mock upstream handles sync lifecycle and simulated failures', async () => 
       return nativeFetch(localUrl, init);
     });
 
-    const ok = await handlers[METHOD_SYNC_FULL]({ items: ['192.0.2.10'] }, ctx);
+    const ok = await callHandler(METHOD_SYNC_FULL, { items: ['192.0.2.10'] }, ctx);
     assert.equal(ok.err_no, 0);
     assert.equal(server.requests.length, 1);
     assert.deepEqual(JSON.parse(server.requests[0].body).items, ['192.0.2.10/32']);
 
     await expectGrpcError(
-      () => handlers[METHOD_SYNC_FULL]({ items: ['192.0.2.11'] }, buildCtx({ bindings: { host: `${httpsLikeHost}?simulate=BIZ-ERROR` } })),
+      () => callHandler(METHOD_SYNC_FULL, { items: ['192.0.2.11'] }, buildCtx({ bindings: { host: `${httpsLikeHost}?simulate=BIZ-ERROR` } })),
       'FAILED_PRECONDITION',
       (err) => assert.match(err.message, /biz error/),
     );
     await expectGrpcError(
-      () => handlers[METHOD_SYNC_FULL]({ items: ['192.0.2.11'] }, buildCtx({ bindings: { host: `${httpsLikeHost}?simulate=INVALID-JSON` } })),
+      () => callHandler(METHOD_SYNC_FULL, { items: ['192.0.2.11'] }, buildCtx({ bindings: { host: `${httpsLikeHost}?simulate=INVALID-JSON` } })),
       'UNKNOWN',
       (err) => assert.match(err.message, /not valid JSON/),
     );

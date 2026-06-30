@@ -96,8 +96,10 @@ const resolveCallContext = (ctx = {}) => ({
   bindings: mergedBindings(ctx),
   limits: ctx.limits ?? {},
   meta: ctx.meta ?? {},
-  req: ctx.req ?? ctx.request ?? {},
+  req: ctx.request ?? ctx.req ?? {},
 });
+
+const requestFromContext = (ctx = {}) => ctx.request ?? ctx.req ?? {};
 
 const normalizeBindings = (rawBindings = {}) => {
   const restBaseUrl = firstDefined(rawBindings.restBaseUrl, rawBindings.baseUrl);
@@ -272,8 +274,8 @@ export function rpcdef(ctx = {}) {
 }
 
 export const handlers = {
-  [METHOD_BLOCK_DOMAIN_FULL]: (req, ctx = {}) => blockDomain(req, ctx),
-  [METHOD_UNBLOCK_DOMAIN_FULL]: (req, ctx = {}) => unblockDomain(req, ctx),
+  [METHOD_BLOCK_DOMAIN_FULL]: (ctx = {}) => blockDomain(requestFromContext(ctx), ctx),
+  [METHOD_UNBLOCK_DOMAIN_FULL]: (ctx = {}) => unblockDomain(requestFromContext(ctx), ctx),
 };
 
 export const _test = {

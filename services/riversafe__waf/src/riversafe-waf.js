@@ -208,8 +208,10 @@ const resolveCallContext = (ctx = {}) => ({
   bindings: mergedBindings(ctx),
   limits: ctx.limits ?? {},
   meta: ctx.meta ?? {},
-  req: ctx.req ?? ctx.request ?? {},
+  req: ctx.request ?? ctx.req ?? {},
 });
+
+const requestFromContext = (ctx = {}) => ctx.request ?? ctx.req ?? {};
 
 const resolveTimeoutMs = (ctx = {}) => {
   const value = Number(firstDefined(ctx.bindings?.timeoutMs, ctx.limits?.timeoutMs, DEFAULT_TIMEOUT_MS));
@@ -233,7 +235,7 @@ const logFlow = (meta, action, details) => {
 };
 
 const syncIPBlacklist = async (req = {}, ctx = {}) => {
-  const callCtx = resolveCallContext({ ...ctx, req });
+  const callCtx = resolveCallContext({ ...ctx, req, request: req });
   const bindings = callCtx.bindings || {};
   const meta = callCtx.meta || {};
 
@@ -334,7 +336,7 @@ export function rpcdef(ctx = {}) {
 }
 
 export const handlers = {
-  [METHOD_SYNC_FULL]: (req, ctx = {}) => syncIPBlacklist(req, ctx),
+  [METHOD_SYNC_FULL]: (ctx = {}) => syncIPBlacklist(requestFromContext(ctx), ctx),
 };
 
 export const _test = {

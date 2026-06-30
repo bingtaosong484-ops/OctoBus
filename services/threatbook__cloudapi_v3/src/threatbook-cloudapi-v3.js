@@ -57,8 +57,10 @@ const resolveCallContext = (ctx = {}) => ({
   bindings: mergedBindings(ctx),
   limits: ctx.limits ?? {},
   meta: ctx.meta ?? {},
-  req: ctx.req ?? ctx.request ?? {},
+  req: ctx.request ?? ctx.req ?? {},
 });
+
+const requestFromContext = (ctx = {}) => ctx.request ?? ctx.req ?? {};
 
 const resolveDomain = (bindings = {}) => normalizeBaseUrl(firstDefined(
   bindings.threatbook_domain,
@@ -305,8 +307,8 @@ export function rpcdef(ctx = {}) {
 }
 
 export const handlers = {
-  [METHOD_IP_REPUTATION_FULL]: (req, ctx = {}) => handleIpReputation(req, ctx),
-  [METHOD_DOMAIN_QUERY_FULL]: (req, ctx = {}) => handleDomainQuery(req, ctx),
+  [METHOD_IP_REPUTATION_FULL]: (ctx = {}) => handleIpReputation(requestFromContext(ctx), ctx),
+  [METHOD_DOMAIN_QUERY_FULL]: (ctx = {}) => handleDomainQuery(requestFromContext(ctx), ctx),
 };
 
 export const _test = {

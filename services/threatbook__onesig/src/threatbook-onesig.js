@@ -75,8 +75,10 @@ const resolveCallContext = (ctx = {}) => ({
   bindings: mergedBindings(ctx),
   limits: ctx.limits ?? {},
   meta: ctx.meta ?? {},
-  req: ctx.req ?? ctx.request ?? {},
+  req: ctx.request ?? ctx.req ?? {},
 });
+
+const requestFromContext = (ctx = {}) => ctx.request ?? ctx.req ?? {};
 
 const normalizeBaseUrl = (raw, { allowInsecure } = {}) => {
   const candidate = trimString(raw);
@@ -481,9 +483,9 @@ export function rpcdef(ctx = {}) {
 }
 
 export const handlers = {
-  [METHOD_BATCH_BLOCK_FULL]: (req, ctx = {}) => handleBatchBlock(req, ctx),
-  [METHOD_LIST_ENTRIES_FULL]: (req, ctx = {}) => handleListEntries(req, ctx),
-  [METHOD_BATCH_UNBLOCK_FULL]: (req, ctx = {}) => handleBatchUnblock(req, ctx),
+  [METHOD_BATCH_BLOCK_FULL]: (ctx = {}) => handleBatchBlock(requestFromContext(ctx), ctx),
+  [METHOD_LIST_ENTRIES_FULL]: (ctx = {}) => handleListEntries(requestFromContext(ctx), ctx),
+  [METHOD_BATCH_UNBLOCK_FULL]: (ctx = {}) => handleBatchUnblock(requestFromContext(ctx), ctx),
 };
 
 export const _test = {

@@ -54,6 +54,11 @@ const buildCtx = (overrides = {}) => ({
   req: overrides.req || {},
 });
 
+const callHandler = (method, request = {}, ctx = {}) => {
+  const handler = handlers[method];
+  return handler({ ...ctx, request });
+};
+
 const expectGrpcError = async (fn, legacyCode, checker = () => {}) => {
   let caught;
   try {
@@ -102,7 +107,7 @@ test('BatchBlockIP success maps payload, headers, TLS, and signature', async () 
     });
   });
 
-  const result = await handlers[METHOD_BATCH_BLOCK_FULL](
+  const result = await callHandler(METHOD_BATCH_BLOCK_FULL,
     { ip_addresses: ['1.1.1.1'], life_cycle_seconds: 0, comments: 'reason', threat_name: 'bot' },
     buildCtx({ bindings: { skipTlsVerify: true } }),
   );
@@ -155,7 +160,7 @@ test('ListInboundBlacklistEntries success returns pagination info and filters', 
     });
   });
 
-  const result = await handlers[METHOD_LIST_ENTRIES_FULL](
+  const result = await callHandler(METHOD_LIST_ENTRIES_FULL,
     { page_no: 2, page_size: 5, search: '1.1.1.1', state: 'enabled', input_type: 'manual' },
     buildCtx(),
   );
@@ -182,7 +187,7 @@ test('BatchUnblockByEntryIds success forwards ids and object type', async () => 
     return response(200, { responseCode: 0, verboseMsg: 'ok', data: { removed: 2 } });
   });
 
-  const result = await handlers[METHOD_BATCH_UNBLOCK_FULL](
+  const result = await callHandler(METHOD_BATCH_UNBLOCK_FULL,
     { entryIds: [{ value: '1' }, { value: '2' }], objectType: 'ip' },
     buildCtx(),
   );
@@ -194,67 +199,67 @@ test('BatchUnblockByEntryIds success forwards ids and object type', async () => 
 
 test('validates bindings and local parameters', async () => {
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx({ config: { base_url: '' } })),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx({ config: { base_url: '' } })),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /base_url/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx({ secret: { api_key: '' } })),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx({ secret: { api_key: '' } })),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /api_key/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx({ secret: { secret: '' } })),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx({ secret: { secret: '' } })),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /bindings.secret/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({}, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, {}, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /ip_addresses is required/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: [] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: [] }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /at least one IP/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: [''] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: [''] }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /non-empty string array/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'], life_cycle_seconds: -1 }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'], life_cycle_seconds: -1 }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /non-negative integer/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'], comments: 'x'.repeat(21) }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'], comments: 'x'.repeat(21) }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /comments/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'], threat_name: 'x'.repeat(21) }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'], threat_name: 'x'.repeat(21) }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /threat_name/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_LIST_ENTRIES_FULL]({ page_no: 0 }, buildCtx()),
+    () => callHandler(METHOD_LIST_ENTRIES_FULL, { page_no: 0 }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /page_no/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_LIST_ENTRIES_FULL]({ page_size: 201 }, buildCtx()),
+    () => callHandler(METHOD_LIST_ENTRIES_FULL, { page_size: 201 }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /page_size/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_UNBLOCK_FULL]({}, buildCtx()),
+    () => callHandler(METHOD_BATCH_UNBLOCK_FULL, {}, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /entry_ids is required/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_UNBLOCK_FULL]({ entry_ids: [] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_UNBLOCK_FULL, { entry_ids: [] }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /entry_ids/),
   );
@@ -265,35 +270,35 @@ test('maps upstream transport and response failures', async () => {
     throw new Error('network down');
   });
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'UNAVAILABLE',
     (err) => assert.match(err.message, /network down/),
   );
 
   setFetch(async () => response(500, 'boom'));
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'UNAVAILABLE',
     (err) => assert.match(err.message, /upstream http 500/),
   );
 
   setFetch(async () => response(200, ''));
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'UNKNOWN',
     (err) => assert.match(err.message, /empty/),
   );
 
   setFetch(async () => response(200, 'not-json'));
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'UNKNOWN',
     (err) => assert.match(err.message, /valid JSON/),
   );
 
   setFetch(async () => response(200, { responseCode: 1234, verboseMsg: 'bad request' }));
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'FAILED_PRECONDITION',
     (err) => assert.match(err.message, /responseCode=1234: bad request/),
   );
@@ -305,7 +310,7 @@ test('maps upstream transport and response failures', async () => {
     },
   }));
   await expectGrpcError(
-    () => handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['1.1.1.1'] }, buildCtx()),
+    () => callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['1.1.1.1'] }, buildCtx()),
     'UNAVAILABLE',
     (err) => assert.match(err.message, /read failed/),
   );
@@ -425,9 +430,9 @@ test('mock upstream handles block, list, unblock lifecycle and business failure'
       config: { base_url: server.url, allow_http: true },
       secret: { api_key: 'demoKey', secret: 'demoSecret' },
     });
-    const block = await handlers[METHOD_BATCH_BLOCK_FULL]({ ip_addresses: ['10.0.0.1'], comments: 'demo' }, ctx);
-    const list = await handlers[METHOD_LIST_ENTRIES_FULL]({ page_no: 1, page_size: 10 }, ctx);
-    const unblock = await handlers[METHOD_BATCH_UNBLOCK_FULL]({ entry_ids: [block.entries[0].id] }, ctx);
+    const block = await callHandler(METHOD_BATCH_BLOCK_FULL, { ip_addresses: ['10.0.0.1'], comments: 'demo' }, ctx);
+    const list = await callHandler(METHOD_LIST_ENTRIES_FULL, { page_no: 1, page_size: 10 }, ctx);
+    const unblock = await callHandler(METHOD_BATCH_UNBLOCK_FULL, { entry_ids: [block.entries[0].id] }, ctx);
 
     assert.equal(block.entries[0].object, '10.0.0.1');
     assert.equal(list.total, 1);
@@ -437,7 +442,7 @@ test('mock upstream handles block, list, unblock lifecycle and business failure'
     assert.equal(server.requests[2].method, 'DELETE');
 
     await expectGrpcError(
-      () => handlers[METHOD_LIST_ENTRIES_FULL]({ search: 'bizfail' }, ctx),
+      () => callHandler(METHOD_LIST_ENTRIES_FULL, { search: 'bizfail' }, ctx),
       'FAILED_PRECONDITION',
       (err) => assert.match(err.message, /business failed/),
     );

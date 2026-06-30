@@ -42,6 +42,11 @@ const buildCtx = (overrides = {}) => ({
   req: overrides.req || {},
 });
 
+const callHandler = (method, request = {}, ctx = {}) => {
+  const handler = handlers[method];
+  return handler({ ...ctx, request });
+};
+
 const expectGrpcError = async (fn, legacyCode, checker = () => {}) => {
   let caught;
   try {
@@ -75,22 +80,22 @@ test('service exports handler and rpcdef path', () => {
 
 test('validates required bindings and ip', async () => {
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx({ config: { threatbook_domain: '' } })),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx({ config: { threatbook_domain: '' } })),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /threatbook_domain/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx({ secret: { threatbook_apikey: '' } })),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx({ secret: { threatbook_apikey: '' } })),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /threatbook_apikey/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({}, buildCtx()),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, {}, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /ip is required/),
   );
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: { value: '   ' } }, buildCtx()),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: { value: '   ' } }, buildCtx()),
     'INVALID_ARGUMENT',
     (err) => assert.match(err.message, /ip is required/),
   );
@@ -107,7 +112,7 @@ test('QueryIPReputation sends request and returns raw HTTP body on success', asy
     });
   });
 
-  const result = await handlers[METHOD_QUERY_IP_REPUTATION_FULL](
+  const result = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL,
     { ip: { value: ' 8.8.8.8 ' } },
     buildCtx({ bindings: { skipTlsVerify: true } }),
   );
@@ -128,7 +133,7 @@ test('QueryIPReputation sends request and returns raw HTTP body on success', asy
 
 test('HTTP 200 with business response_code failure stays gRPC OK', async () => {
   setFetch(async () => response(200, { response_code: 1001, verbose_msg: 'IP not found', data: [] }));
-  const result = await handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ resource: '1.1.1.1' }, buildCtx());
+  const result = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { resource: '1.1.1.1' }, buildCtx());
   assert.equal(result.http_status, 200);
   assert.match(result.http_body, /"response_code":1001/);
   assert.match(result.http_body, /IP not found/);
@@ -141,7 +146,7 @@ test('supports aliases and IPv6 query encoding', async () => {
     return response(200, { response_code: 0, data: [] });
   });
 
-  await handlers[METHOD_QUERY_IP_REPUTATION_FULL](
+  await callHandler(METHOD_QUERY_IP_REPUTATION_FULL,
     { ip: '2001:4860:4860::8888' },
     buildCtx({
       config: { threatbook_domain: undefined, baseUrl: ' http://mock.local/ ' },
@@ -161,7 +166,7 @@ test('maps HTTP and network failures with response details', async () => {
   for (const [status, legacyCode] of [[401, 'PERMISSION_DENIED'], [403, 'PERMISSION_DENIED'], [400, 'FAILED_PRECONDITION'], [404, 'FAILED_PRECONDITION'], [500, 'UNAVAILABLE'], [502, 'UNAVAILABLE']]) {
     setFetch(async () => response(status, { response_code: -1, verbose_msg: `status ${status}` }));
     await expectGrpcError(
-      () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx()),
+      () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx()),
       legacyCode,
       (err) => {
         assert.equal(err.response.http_status, status);
@@ -174,7 +179,7 @@ test('maps HTTP and network failures with response details', async () => {
     throw Object.assign(new Error('network error'), { cause: new Error('connection refused') });
   });
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx()),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx()),
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
@@ -189,7 +194,7 @@ test('maps HTTP and network failures with response details', async () => {
     },
   }));
   await expectGrpcError(
-    () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx()),
+    () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx()),
     'UNAVAILABLE',
     (err) => {
       assert.equal(err.response.http_status, 0);
@@ -258,8 +263,8 @@ test('mock upstream handles success, business failure, auth, and server errors',
   const server = await createMockServer();
   try {
     const ctx = buildCtx({ config: { threatbook_domain: server.url } });
-    const ok = await handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, ctx);
-    const biz = await handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '1.1.1.1' }, ctx);
+    const ok = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, ctx);
+    const biz = await callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '1.1.1.1' }, ctx);
     assert.equal(ok.http_status, 200);
     assert.match(ok.http_body, /malicious/);
     assert.equal(biz.http_status, 200);
@@ -268,11 +273,11 @@ test('mock upstream handles success, business failure, auth, and server errors',
     assert.equal(server.requests[0].query.lang, 'zh');
 
     await expectGrpcError(
-      () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '8.8.8.8' }, buildCtx({ config: { threatbook_domain: server.url }, secret: { threatbook_apikey: 'invalid_key' } })),
+      () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '8.8.8.8' }, buildCtx({ config: { threatbook_domain: server.url }, secret: { threatbook_apikey: 'invalid_key' } })),
       'PERMISSION_DENIED',
     );
     await expectGrpcError(
-      () => handlers[METHOD_QUERY_IP_REPUTATION_FULL]({ ip: '500.500.500.500' }, ctx),
+      () => callHandler(METHOD_QUERY_IP_REPUTATION_FULL, { ip: '500.500.500.500' }, ctx),
       'UNAVAILABLE',
     );
   } finally {
