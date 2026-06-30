@@ -185,7 +185,7 @@
 
 参考文档：[实施计划 阶段 3](docs/plan/services-sdk-0-6-upgrade-implementation-plan.md#阶段-3抽取低风险-helper-迁移候选)
 
-- [ ] 3.1 生成 helper 迁移候选清单
+- [x] 3.1 生成 helper 迁移候选清单
   - 依赖：任务 2.3。
   - 工作内容：
     - 扫描本地 `grpcCodeFor`、config/secret merge、timeout/TLS、response 读取、JSON parse、脱敏摘要等重复实现。
@@ -193,11 +193,11 @@
     - 明确首批要迁移的 service root；不在清单内的 service 不修改。
     - 将 `mapHttpStatusToCode`、`readResponseJson` 非法 JSON 语义、`google.protobuf.Value` 手写转换默认归为 C 类，除非测试证明可直接替换。
   - 可并行子任务：
-    - [ ] 可并行：错误构造和状态码映射扫描。
-    - [ ] 可并行：context/config/secret merge 扫描。
-    - [ ] 可并行：timeout/TLS/fetch 扫描。
-    - [ ] 可并行：response 读取、JSON parse、脱敏摘要扫描。
-    - [ ] 可并行：候选 service 测试覆盖审计。
+    - [x] 可并行：错误构造和状态码映射扫描。
+    - [x] 可并行：context/config/secret merge 扫描。
+    - [x] 可并行：timeout/TLS/fetch 扫描。
+    - [x] 可并行：response 读取、JSON parse、脱敏摘要扫描。
+    - [x] 可并行：候选 service 测试覆盖审计。
   - 测试方案：
     - `rg -n "const grpcCodeFor|function grpcCodeFor|new GrpcError\\(grpcCodeFor" services/*/src/*.js`
     - `rg -n "AbortController|AbortSignal\\.timeout|makeTimeoutSignal|fetchWithTimeout" services/*/src/*.js`
@@ -208,10 +208,55 @@
     - 每个待迁移 service 都有 focused service-local test。
     - C 类保留项已明确，不会在首批迁移中误改。
   - 完成总结：
-    - 状态：待完成。
-    - 变更：待完成。
-    - 验证：待完成。
-    - 审计与例外：待完成。
+    - 状态：已完成。已生成首批 helper 迁移候选清单；本任务未修改 service 源码。
+    - 变更：
+      - 扫描并聚合 helper 命中面：
+
+        | 类别 | 命中 service 数 | 处理结论 |
+        |---|---:|---|
+        | 本地 `grpcCodeFor` / `new GrpcError(grpcCodeFor(...))` | 48 | 可按 service 分批迁移，首批只选轻量且测试覆盖充分的 A 类服务。 |
+        | 手写 timeout / `fetchWithTimeout` / `AbortSignal.timeout` | 48 | 默认 B 类；SDK `fetchWithTimeout` 的网络错误 message/cause 语义可能不同，不能批量替换。 |
+        | 手写 `undici.Agent` / TLS dispatcher | 44 | 可作为 B 类逐个替换为 `createTlsDispatcher(true)`，必须保留 module-level 缓存和测试断言。 |
+        | config/secret merge | 47 | 无纯 config/secret A 类；全部带 `ctx.bindings` 兼容层，必须保留既有优先级。 |
+        | response text/JSON/脱敏摘要 | 47 | 默认 B/C 类；只有 body read failure 和非法 JSON 语义一致时才能替换。 |
+        | protobuf `toValue` / `google.protobuf.Value` shape | 19 | C 类，首批不迁移。 |
+        | HTTP status mapping | 19 | C 类，除非测试证明 SDK 默认映射完全一致。 |
+
+      - 首批 A 类候选，供任务 4.1 使用：
+
+        | service root | 允许迁移 helper | 限制 |
+        |---|---|---|
+        | `services/dingtalk__group-robot` | 本地 `grpcCodeFor` 替换为 SDK `grpcCodeFor`；保留 `errorWithCode` message 和 `legacyCode`。 | 不迁移 `mergedBindings`，因为测试要求 secret 覆盖 bindings；不迁移 timeout/read helper。 |
+        | `services/feishu__group-robot` | 本地 `grpcCodeFor` 替换为 SDK `grpcCodeFor`；保留 `errorWithCode` message 和 `legacyCode`。 | 不迁移 `mergedBindings`；HTTP/TLS 只作为任务 5.1 B 类候选。 |
+        | `services/slack__group-robot` | 本地 `grpcCodeFor` 替换为 SDK `grpcCodeFor`；保留 `errorWithCode` message 和 `legacyCode`。 | 不迁移 `mergedBindings`，因为测试要求 secret 覆盖 bindings；不迁移 timeout/read helper。 |
+
+      - 首批 B 类候选，供任务 5.1 小批量评估：
+
+        | service root | 可评估 helper | 必须保留的 service 语义 |
+        |---|---|---|
+        | `services/feishu__group-robot` | `createTlsDispatcher(true)` 替换本地 module-level `new Agent(...)`；可评估 `normalizeTimeoutMs`。 | 保留当前 fetch error、response read error、HTTP status 和 `httpBody` shape；暂不直接使用 `fetchWithTimeout` 或 `readResponseJson`。 |
+        | `services/dingtalk__group-robot` | 可评估 `normalizeTimeoutMs`。 | `skipTlsVerify` 仍必须报 `INVALID_ARGUMENT`；网络错误 message 继续使用 cause message；暂不使用 `fetchWithTimeout`。 |
+        | `services/slack__group-robot` | 可评估 `normalizeTimeoutMs`。 | `skipTlsVerify` 仍必须报 `INVALID_ARGUMENT`；网络错误 message 继续使用 cause message；暂不使用 `fetchWithTimeout`。 |
+
+      - C 类保留项：
+        - 19 个 protobuf `toValue` / `google.protobuf.Value` shape service：`alibaba-cloud__simple-application-server-firewall`、`chaitin__safeline-waf`、`das__tgfw_v6`、`defectdojo__defectdojo`、`dptech__fw_v4-6-10`、`dptech__umc-ads_v5-3-29`、`fortinet__fw`、`fortinet__waf`、`hillstone__fw_v5-5-r10`、`imperva__waf-gateway_v13-6-90`、`nsfocus__nips_v5-6-r11`、`panabit__tang-r1`、`qianxin__fw-secgate3600`、`qianxin__fw-secgate3600-http-x`、`qiming-tianqing__waf`、`tencent__tsec_v2-5-1`、`threatbook__claudsandbox_v3`、`threatbook__cloudapi_v3`、`threatbook__tdp`。
+        - HTTP status mapping service 默认保留本地映射，尤其是把上游 4xx 映射为 `FAILED_PRECONDITION` 或自定义 `PERMISSION_DENIED` 的实现。
+        - `readResponseJson` 默认不迁移；当前多个 service 对非法 JSON 使用 `UNKNOWN`、保留 raw/body length 或返回业务 payload，和 SDK `INTERNAL` 语义不同。
+        - 登录/session、签名、业务 code、非 JSON 成功响应和 response payload shape 相关逻辑不纳入首批迁移。
+    - 验证：
+      - `rg -n "const grpcCodeFor|function grpcCodeFor|new GrpcError\\(grpcCodeFor" services/*/src/*.js`：确认 48 个 service 命中本地错误码 helper。
+      - `rg -n "AbortController|AbortSignal\\.timeout|makeTimeoutSignal|fetchWithTimeout" services/*/src/*.js`：确认 48 个 service 命中 timeout/fetch 相关 helper。
+      - `rg -n "new Agent\\(|import\\('undici'\\)|from 'undici'|from \\"undici\\"" services/*/src/*.js`：确认 44 个 service 命中 TLS dispatcher。
+      - `rg -n "\\.\\.\\.\\(ctx\\??\\.config \\?\\? \\{\\}\\)|\\.\\.\\.\\(ctx\\??\\.secret \\?\\? \\{\\}\\)" services/*/src/*.js`：确认 47 个 service 命中 config/secret merge。
+      - `rg -n "readResponse|response\\.text\\(|\\.json\\(|JSON\\.parse|redact|safeError|sanitize|mask|body snippet|bodySnippet" services/*/src/*.js`：确认 47 个 service 命中 response/JSON/脱敏相关实现。
+      - 聚合脚本：确认 50 个 service root 均存在 service-local `.test.js`，无缺失测试目录。
+      - SDK 0.6.0 本地安装包审计：`services/node_modules/@chaitin-ai/octobus-sdk/dist/index.d.ts` 导出 `grpcCodeFor`、`mergeConfigSecret`、`createTlsDispatcher`、`fetchWithTimeout`、`readResponseText`、`readResponseJson`、`httpStatusError` 等 helper。
+      - SDK helper 实现审计：确认 `mergeConfigSecret(ctx)` 只返回 config 后 secret；`fetchWithTimeout` 会把 timeout 映射为 `DEADLINE_EXCEEDED`、外部 abort 映射为 `CANCELLED`、网络失败映射为 `UNAVAILABLE`；`readResponseJson` 非法 JSON 映射为 `INTERNAL`；SDK `mapHttpStatusToCode` 将 400 映射为 `INVALID_ARGUMENT`、404 映射为 `NOT_FOUND`。
+      - focused test 覆盖审计：`dingtalk__group-robot`、`feishu__group-robot`、`slack__group-robot`、`tencent__qyweixin-group-robot` 均有 service-local test；前三者覆盖 `legacyCode`、`mergedBindings`、网络错误和 response read failure，企业微信覆盖自定义 HTTP status mapping，故不列入 A 类。
+    - 审计与例外：
+      - 没有发现可直接迁移到 `mergeConfigSecret(ctx)` 的纯 config/secret merge；47 个命中都涉及 `ctx.bindings` 或 binding compatibility，任务 4.1 不做批量 context merge。
+      - `tencent__qyweixin-group-robot` 虽是轻量服务，但其 HTTP status mapping、JSON payload error message 和 `upstreamError` shape 均由测试固定，归入 B/C 类，不进入首批 A 类。
+      - 本任务只生成候选清单，没有运行 focused service tests；后续任务 4.1/5.1 修改源码时必须逐 service 运行 validate/test/coverage。
     - 下一目标：任务 4.1。
 
 ## 4. 迁移通用 Context 和错误构造 Helper
