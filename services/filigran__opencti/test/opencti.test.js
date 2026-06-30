@@ -496,7 +496,7 @@ test('gqlEscape escapes backslashes before quotes to prevent injection', async (
   const { _test } = await import('../src/opencti.js');
   // Backslash must be escaped first to avoid creating invalid escape sequences
   assert.equal(_test.gqlEscape('abc\\def'), 'abc\\\\def');
-  assert.equal(_test.gqlEscape('path"C:\\Users"'), 'path"C:\\\\Users"');
+  assert.equal(_test.gqlEscape('path"C:\\Users"'), 'path\\"C:\\\\Users\\"');
   assert.equal(_test.gqlEscape('simple"quote'), 'simple\\"quote');
   assert.equal(_test.gqlEscape('both\\"chars'), 'both\\\\\\"chars');
 });
